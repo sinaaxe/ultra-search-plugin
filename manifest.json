@@ -2,9 +2,9 @@
 	"id": "line-search",
 	"name": "Line Search",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
+	"minAppVersion": "1.12.7",
 	"description": "Fuzzy and out-of-order word search across all lines of all Markdown files in the vault.",
 	"author": "sinaaxe",
-	"authorUrl": "https://github.com/sinaaxe/line-search-plugin",
+	"authorUrl": "https://www.linkedin.com/in/sina1jafari",
 	"isDesktopOnly": false
 }

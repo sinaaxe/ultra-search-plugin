@@ -37,7 +37,38 @@
 
 ---
 
-## Installation & Setup
+## How to Use
+
+- Open the Command Palette (`Ctrl/Cmd + P`), type `Line Search: Open line search`, and press `Enter`. (Alternatively, click the magnifying glass ribbon icon on the left sidebar).
+- Type your search terms (separated by spaces).
+- Use the arrow keys to navigate matching lines, and hit `Enter` to open and jump directly to that line.
+
+---
+
+## Settings
+
+* **Minimum query length**: The minimum characters you need to type before the search starts.
+* **Maximum results**: The maximum number of results to display in the list (defaults to `10` to keep rendering fast).
+* **Exclude folders**: Comma-separated list of directories (e.g., `templates, archive`) to ignore during line indexing.
+
+---
+
+## Security & Privacy
+
+### Vault Enumeration & Data Access
+This plugin uses the Obsidian API (`app.vault.getMarkdownFiles`) to enumerate files in your vault.
+* **Why it is needed**: This is required to discover Markdown files, read their content, and build a local, in-memory index of all lines so they can be searched instantly.
+* **Privacy & Local-First**: All indexing, scanning, and search matching run entirely on your local machine. No vault data, file paths, or search queries ever leave your device or get transmitted over the internet.
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+## Local Development & Installation
 
 ### Building From Source
 If you are compiling this plugin from source:
@@ -59,25 +90,3 @@ If you are compiling this plugin from source:
    ```
 2. Open Obsidian and go to **Settings** -> **Community plugins**.
 3. Enable **Line Search** from the list of installed plugins.
-
----
-
-## How to Use
-
-- Open the Command Palette (`Ctrl/Cmd + P`), type `Line Search: Open line search`, and press `Enter`. (Alternatively, click the magnifying glass ribbon icon on the left sidebar).
-- Type your search terms (separated by spaces).
-- Use the arrow keys to navigate matching lines, and hit `Enter` to open and jump directly to that line.
-
----
-
-## Settings
-
-* **Minimum query length**: The minimum characters you need to type before the search starts.
-* **Maximum results**: The maximum number of results to display in the list (defaults to `10` to keep rendering fast).
-* **Exclude folders**: Comma-separated list of directories (e.g., `templates, archive`) to ignore during line indexing.
-
----
-
-## License
-
-This project is licensed under the MIT License.

@@ -42,8 +42,8 @@ function minPrefixLevenshteinDistance(word: string, query: string): number {
 	if (query.length === 0) return 0;
 	if (word.length === 0) return query.length;
 
-	let prevRow = Array(word.length + 1).fill(0);
-	let currRow = Array(word.length + 1).fill(0);
+	let prevRow: number[] = Array<number>(word.length + 1).fill(0);
+	let currRow: number[] = Array<number>(word.length + 1).fill(0);
 
 	for (let i = 1; i <= query.length; i++) {
 		currRow[0] = i;
@@ -128,7 +128,7 @@ export default class LineSearchPlugin extends Plugin {
 			this.isIndexing = false;
 			statusBar.setText('Line Search: Ready');
 			// Remove the status bar item after a short delay
-			setTimeout(() => {
+			window.setTimeout(() => {
 				statusBar.remove();
 			}, 5000);
 		});
@@ -140,8 +140,8 @@ export default class LineSearchPlugin extends Plugin {
 
 		// Command palette command
 		this.addCommand({
-			id: 'open-line-search',
-			name: 'Open line search',
+			id: 'open',
+			name: 'Open',
 			callback: () => {
 				new LineSearchModal(this.app, this).open();
 			}
@@ -178,7 +178,8 @@ export default class LineSearchPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loadedData = (await this.loadData()) as Partial<LineSearchSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 	}
 
 	async saveSettings() {
@@ -340,7 +341,7 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 
 	// Custom inline text highlighter
 	renderHighlightedText(parentEl: HTMLElement, text: string, terms: string[]) {
-		const highlighted = new Array(text.length).fill(false);
+		const highlighted: boolean[] = new Array<boolean>(text.length).fill(false);
 		const lowerText = text.toLowerCase();
 
 		for (const term of terms) {
@@ -354,12 +355,12 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 				let bestDist = Infinity;
 				let matchStart = -1;
 				let matchEnd = -1;
-				
+
 				let currentWordStart = -1;
 				for (let i = 0; i <= lowerText.length; i++) {
 					const char = i < lowerText.length ? (lowerText[i] || ' ') : ' ';
 					const isAlphanumeric = /[a-z0-9]/.test(char);
-					
+
 					if (isAlphanumeric) {
 						if (currentWordStart === -1) currentWordStart = i;
 					} else {
@@ -369,7 +370,7 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 							let maxTypos = 0;
 							if (term.length >= 3 && term.length <= 5) maxTypos = 1;
 							else if (term.length >= 6) maxTypos = 2;
-							
+
 							if (dist <= maxTypos && dist < bestDist) {
 								bestDist = dist;
 								matchStart = currentWordStart;
@@ -379,7 +380,7 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 						}
 					}
 				}
-				
+
 				if (matchStart !== -1 && matchEnd !== -1) {
 					for (let i = matchStart; i < matchEnd; i++) {
 						highlighted[i] = true;
@@ -413,30 +414,34 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 	}
 
 	// Navigate to selected file and line
-	async onChooseSuggestion(suggestion: LineSearchResult, evt: MouseEvent | KeyboardEvent) {
+	onChooseSuggestion(suggestion: LineSearchResult, evt: MouseEvent | KeyboardEvent): void {
 		const leaf = this.app.workspace.getLeaf(Keymap.isModifier(evt, 'Mod'));
-		await leaf.openFile(suggestion.file, { state: { mode: 'source' } });
+		
+		const openAndScroll = async () => {
+			await leaf.openFile(suggestion.file, { state: { mode: 'source' } });
+			const setEditorCursor = () => {
+				const view = leaf.view;
+				if (view instanceof MarkdownView) {
+					const editor = view.editor;
+					const pos = { line: suggestion.lineNumber - 1, ch: 0 };
+					editor.setCursor(pos);
+					editor.scrollIntoView({ from: pos, to: pos }, true);
+					editor.focus();
+					return true;
+				}
+				return false;
+			};
 
-		const setEditorCursor = () => {
-			const view = leaf.view;
-			if (view instanceof MarkdownView) {
-				const editor = view.editor;
-				const pos = { line: suggestion.lineNumber - 1, ch: 0 };
-				editor.setCursor(pos);
-				editor.scrollIntoView({ from: pos, to: pos }, true);
-				editor.focus();
-				return true;
+			// Try setting cursor immediately
+			if (!setEditorCursor()) {
+				// Fallback with a short delay if editor was not yet instantiated
+				window.setTimeout(() => {
+					setEditorCursor();
+				}, 50);
 			}
-			return false;
 		};
 
-		// Try setting cursor immediately
-		if (!setEditorCursor()) {
-			// Fallback with a short delay if editor was not yet instantiated
-			setTimeout(() => {
-				setEditorCursor();
-			}, 50);
-		}
+		void openAndScroll();
 	}
 }
 
@@ -453,7 +458,9 @@ class LineSearchSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Settings for Line Search' });
+		new Setting(containerEl)
+			.setName('Settings for Line Search')
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName('Minimum query length')
@@ -493,7 +500,7 @@ class LineSearchSettingTab extends PluginSettingTab {
 					this.plugin.settings.excludeFolders = value;
 					await this.plugin.saveSettings();
 					// Rebuild index in the background to apply exclusions
-					this.plugin.buildIndex();
+					void this.plugin.buildIndex();
 				}));
 	}
 }
