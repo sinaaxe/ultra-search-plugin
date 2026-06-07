@@ -5,6 +5,6 @@
 	"minAppVersion": "1.12.7",
 	"description": "Uses each line as a separate unit for fuzzy and out-of-order word search across all Markdown files in the vault.",
 	"author": "sinaaxe",
-	"authorUrl": "https://www.linkedin.com/in/sina1jafari",
+	"authorUrl": "https://github.com/sinaaxe",
 	"isDesktopOnly": false
 }
