@@ -1,6 +1,6 @@
 # Obsidian Line Search Plugin
 
-**Line Search** is a high-performance, community plugin for [Obsidian](https://obsidian.md) that lets you search and rank individual lines across all Markdown files in your vault. It supports **fuzzy subsequence matching** and **out-of-order word matching** while maintaining a lightweight in-memory index that updates incrementally in real time.
+**Line Search** is a high-performance, community plugin for [Obsidian](https://obsidian.md) that lets you search and rank individual lines across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight in-memory index that updates incrementally in real time.
 
 ---
 
@@ -11,9 +11,14 @@
    - Shows matching lines directly in the suggestions list.
 
 2. **Advanced Matching & Ranking**:
-   - **Out-of-Order Search**: Querying `hello world` will match lines like `world says hello` as well as `hello, world!`.
-   - **Fuzzy Matching**: Matches characters using subsequence alignments, meaning a query of `fz srh` will match `fuzzy search`.
-   - **Dynamic Scoring**: Ranks results based on exact matches, word boundaries, matching character proximities, character order, and line lengths.
+   - **Out-of-Order Multi-Word Search**: Querying space-separated terms (e.g. `hello world`) matches lines containing all terms in any order (AND search).
+   - **Exact Substring Match**: High-priority matching for exact term matches in the line.
+   - **Typo-Tolerant Word Prefix Match**: For query terms of 3-5 characters, matches words with up to 1 typo; for terms of 6 or more characters, matches words with up to 2 typos.
+   - **Dynamic Scoring**:
+     - Higher scores for exact matches and word-boundary starts.
+     - Sequence order bonus (+20 score) when terms appear in the same order as the query.
+     - Slighly penalizes long lines (by 0.01 per character) to favor short and concise matches.
+     - Typo penalty applied for fuzzy matches based on Levenshtein distance.
 
 3. **Premium Suggestion UI**:
    - Native integration with Obsidian's Command Palette suggestions layout.
