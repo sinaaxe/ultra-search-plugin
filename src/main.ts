@@ -459,7 +459,7 @@ class LineSearchSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings for Line Search')
+			.setName('General')
 			.setHeading();
 
 		new Setting(containerEl)

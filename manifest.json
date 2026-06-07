@@ -3,7 +3,7 @@
 	"name": "Line Search",
 	"version": "1.0.0",
 	"minAppVersion": "1.12.7",
-	"description": "Fuzzy and out-of-order word search across all lines of all Markdown files in the vault.",
+	"description": "Uses each line as a separate unit for fuzzy and out-of-order word search across all Markdown files in the vault.",
 	"author": "sinaaxe",
 	"authorUrl": "https://www.linkedin.com/in/sina1jafari",
 	"isDesktopOnly": false
