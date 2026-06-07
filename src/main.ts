@@ -416,7 +416,7 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 	// Navigate to selected file and line
 	onChooseSuggestion(suggestion: LineSearchResult, evt: MouseEvent | KeyboardEvent): void {
 		const leaf = this.app.workspace.getLeaf(Keymap.isModifier(evt, 'Mod'));
-		
+
 		const openAndScroll = async () => {
 			await leaf.openFile(suggestion.file, { state: { mode: 'source' } });
 			const setEditorCursor = () => {
@@ -457,10 +457,6 @@ class LineSearchSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('General')
-			.setHeading();
 
 		new Setting(containerEl)
 			.setName('Minimum query length')
