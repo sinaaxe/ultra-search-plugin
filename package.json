@@ -1,0 +1,29 @@
+{
+	"name": "obsidian-line-search",
+	"version": "1.0.0",
+	"description": "Fuzzy and out-of-order line search across all Markdown files in Obsidian.",
+	"main": "main.js",
+	"type": "module",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+	},
+	"keywords": [
+		"obsidian",
+		"plugin",
+		"search",
+		"fuzzy",
+		"line"
+	],
+	"author": "Antigravity",
+	"license": "MIT",
+	"dependencies": {
+		"tslib": "^2.4.0"
+	},
+	"devDependencies": {
+		"@types/node": "^16.11.6",
+		"esbuild": "^0.21.5",
+		"obsidian": "latest",
+		"typescript": "^5.4.5"
+	}
+}

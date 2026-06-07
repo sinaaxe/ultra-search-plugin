@@ -1,0 +1,10 @@
+{
+	"id": "line-search",
+	"name": "Line Search",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Fuzzy and out-of-order word search across all lines of all Markdown files in the vault.",
+	"author": "Antigravity",
+	"authorUrl": "https://github.com/google-deepmind",
+	"isDesktopOnly": false
+}
