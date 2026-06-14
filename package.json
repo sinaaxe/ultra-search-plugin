@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-line-search",
-	"version": "1.0.0",
+	"version": "1.0.2",
 	"description": "Fuzzy and out-of-order line search across all Markdown files in Obsidian.",
 	"main": "main.js",
 	"type": "module",

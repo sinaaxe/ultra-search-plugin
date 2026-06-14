@@ -1,7 +1,7 @@
 {
 	"id": "line-search",
 	"name": "Line Search",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.12.7",
 	"description": "Uses each line as a separate unit for fuzzy and out-of-order word search across all Markdown files in the vault.",
 	"author": "sinaaxe",
