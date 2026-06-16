@@ -1,5 +1,5 @@
-/* Styling for search suggestions in the Line Search Plugin */
-.line-search-suggestion {
+/* Styling for search suggestions in the UltraSearch Plugin */
+.ultra-search-suggestion {
 	display: flex;
 	flex-direction: column;
 	padding: 6px 12px;
@@ -7,13 +7,13 @@
 	transition: background-color 0.1s ease;
 }
 
-.line-search-suggestion .suggestion-content {
+.ultra-search-suggestion .suggestion-content {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 }
 
-.line-search-suggestion .suggestion-title {
+.ultra-search-suggestion .suggestion-title {
 	font-size: 14px;
 	font-weight: 500;
 	color: var(--text-normal);
@@ -22,7 +22,7 @@
 	white-space: pre-wrap;
 }
 
-.line-search-suggestion .suggestion-note {
+.ultra-search-suggestion .suggestion-note {
 	font-size: 11px;
 	color: var(--text-muted);
 	display: flex;
@@ -30,22 +30,22 @@
 	gap: 6px;
 }
 
-.line-search-suggestion .line-search-file {
+.ultra-search-suggestion .ultra-search-file {
 	font-weight: 600;
 	color: var(--text-muted);
 }
 
-.line-search-suggestion .line-search-separator {
+.ultra-search-suggestion .ultra-search-separator {
 	color: var(--text-faint);
 }
 
-.line-search-suggestion .line-search-linenumber {
+.ultra-search-suggestion .ultra-search-linenumber {
 	color: var(--text-accent);
 	font-weight: 500;
 }
 
 /* Highlight matching query characters */
-.line-search-suggestion .suggestion-highlight {
+.ultra-search-suggestion .suggestion-highlight {
 	background-color: var(--text-highlight-bg);
 	color: var(--text-normal);
 	font-weight: 600;
