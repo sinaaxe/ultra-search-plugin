@@ -1,39 +1,36 @@
 # Obsidian UltraSearch Plugin
 
-**UltraSearch** is a high-performance, community plugin for [Obsidian](https://obsidian.md) that lets you search and rank individual lines and segments across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight in-memory index that updates incrementally in real time.
+**UltraSearch** is a high-performance community plugin for [Obsidian](https://obsidian.md) that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight, incrementally-updated index and delivering a lag-free, debounced typing experience.
 
 ---
 
 ## Key Features
 
-1. **Single-Line Centric Search**:
-   - Searches every line of every Markdown file as an independent search unit.
-   - Shows matching lines directly in the suggestions list.
+1. **Unified File Name & Line-Level Search**:
+   - Searches every file name and every line of every Markdown file independently.
+   - Shows both matching file names and matching lines directly in the suggestions list.
 
-2. **Advanced Matching & Ranking**:
-   - **Out-of-Order Multi-Word Search**: Querying space-separated terms (e.g. `hello world`) matches lines containing all terms in any order (AND search).
-   - **Exact Substring Match**: High-priority matching for exact term matches in the line.
+2. **Harmonious Color-Coded Badges**:
+   - Every result is clearly categorized using HSL-tailored, theme-compatible colored badges on the right side:
+     - **Green Badge (Line)**: Indicates a line search match.
+     - **Blue Badge (File)**: Indicates a file name match.
+   - A static search type legend is fixed at the bottom of the modal window wrapper to define the colors clearly.
+
+3. **Advanced Matching & Ranking**:
+   - **Out-of-Order Multi-Word Search**: Querying space-separated terms (e.g. `hello world`) matches items containing all terms in any order (AND search).
+   - **Exact Substring Match**: High-priority matching for exact term matches in the file name or line.
    - **Typo-Tolerant Word Prefix Match**: For query terms of 3-5 characters, matches words with up to 1 typo; for terms of 6 or more characters, matches words with up to 2 typos.
-   - **Dynamic Scoring**:
-     - Higher scores for exact matches and word-boundary starts.
+   - **Order-Aware Scoring**:
+     - Sorts results descending by relevance (best match first).
+     - Higher base scores for exact matches and word-boundary starts.
      - Sequence order bonus (+20 score) when terms appear in the same order as the query.
-     - Slightly penalizes long lines (by 0.01 per character) to favor short and concise matches.
-     - Typo penalty applied for fuzzy matches based on Levenshtein distance.
-
-3. **Premium Suggestion UI**:
-   - Native integration with Obsidian's Command Palette suggestions layout.
-   - Highlight rendering showing precisely which characters in the line matched your query.
-   - Shows metadata badge for the file path and the line number.
+     - File matches receive a slight score boost (+10) to prioritize note files when match relevance is identical to content matches.
+     - Penalizes long file names/lines slightly (by 0.01 per character) to favor shorter, more concise matches.
 
 4. **Editor Navigation**:
-   - Hitting `Enter` or clicking on a suggestion opens the note.
-   - Automatically scrolls the editor to center the target line and moves the cursor directly to the line.
+   - Hitting `Enter` or clicking on a line suggestion opens the note and scrolls directly to that line.
+   - Hitting `Enter` or clicking on a file suggestion opens the file at the top.
    - Support for opening files in new tabs/panes by holding the `Ctrl`/`Cmd` modifier key.
-
-5. **Optimized Background Indexer**:
-   - Skips empty lines to reduce memory consumption.
-   - Keeps pre-lowercased line references in memory to maximize performance.
-   - Updates incrementally in the background using vault event listeners (`create`, `modify`, `delete`, and `rename`), avoiding full re-indexing steps.
 
 ---
 
@@ -41,7 +38,7 @@
 
 - Open the Command Palette (`Ctrl/Cmd + P`), type `UltraSearch: Open`, and press `Enter`. (Alternatively, click the magnifying glass ribbon icon on the left sidebar).
 - Type your search terms (separated by spaces).
-- Use the arrow keys to navigate matching lines, and hit `Enter` to open and jump directly to that line.
+- Use the arrow keys to navigate matching files and lines, and hit `Enter` to open.
 
 ---
 
@@ -56,8 +53,8 @@
 ## Security & Privacy
 
 ### Vault Enumeration & Data Access
-This plugin uses the Obsidian API (`app.vault.getMarkdownFiles`) to enumerate files in your vault.
-* **Why it is needed**: This is required to discover Markdown files, read their content, and build a local, in-memory index of all lines so they can be searched instantly.
+This plugin uses the Obsidian API (`app.vault.getMarkdownFiles`) to discover Markdown files in your vault.
+* **Why it is needed**: This is required to read file contents and build a local, in-memory search index.
 * **Privacy & Local-First**: All indexing, scanning, and search matching run entirely on your local machine. No vault data, file paths, or search queries ever leave your device or get transmitted over the internet.
 
 ---

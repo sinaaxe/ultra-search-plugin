@@ -1,16 +1,21 @@
 /* Styling for search suggestions in the UltraSearch Plugin */
 .ultra-search-suggestion {
 	display: flex;
-	flex-direction: column;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
 	padding: 6px 12px;
 	border-radius: 4px;
 	transition: background-color 0.1s ease;
+	gap: 12px;
 }
 
 .ultra-search-suggestion .suggestion-content {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+	flex-grow: 1;
+	min-width: 0;
 }
 
 .ultra-search-suggestion .suggestion-title {
@@ -52,3 +57,63 @@
 	border-radius: 2px;
 	padding: 0 1px;
 }
+
+/* Result Type Badges */
+.ultra-search-badge {
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+}
+
+.theme-dark .ultra-search-badge.badge-line {
+	background-color: rgba(46, 204, 113, 0.15);
+	color: #2ecc71;
+	border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.theme-light .ultra-search-badge.badge-line {
+	background-color: rgba(39, 174, 96, 0.1);
+	color: #27ae60;
+	border: 1px solid rgba(39, 174, 96, 0.2);
+}
+
+.theme-dark .ultra-search-badge.badge-file {
+	background-color: rgba(52, 152, 219, 0.15);
+	color: #3498db;
+	border: 1px solid rgba(52, 152, 219, 0.3);
+}
+
+.theme-light .ultra-search-badge.badge-file {
+	background-color: rgba(41, 128, 185, 0.1);
+	color: #2980b9;
+	border: 1px solid rgba(41, 128, 185, 0.2);
+}
+
+/* Fixed Footer Legend */
+.ultra-search-footer {
+	padding: 10px 16px;
+	border-top: 1px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	font-size: 11px;
+	color: var(--text-muted);
+	border-bottom-left-radius: 8px;
+	border-bottom-right-radius: 8px;
+}
+
+.ultra-search-legend-title {
+	font-weight: 600;
+	margin-right: 4px;
+}
+
+.ultra-search-legend-desc {
+	margin-right: 12px;
+}
+

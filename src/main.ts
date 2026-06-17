@@ -30,9 +30,10 @@ interface IndexedLine {
 }
 
 // Search result item
-interface LineSearchResult {
+interface SearchResult {
+	type: 'line' | 'file';
 	file: TFile;
-	lineNumber: number;
+	lineNumber?: number;
 	text: string;
 	score: number;
 }
@@ -248,9 +249,15 @@ export default class UltraSearchPlugin extends Plugin {
 }
 
 // Suggestion Modal Implementation
-class UltraSearchModal extends SuggestModal<LineSearchResult> {
+class UltraSearchModal extends SuggestModal<SearchResult> {
 	plugin: UltraSearchPlugin;
 	terms: string[] = [];
+
+	// Performance state variables
+	private searchTimeoutId: number | null = null;
+	private activeResolve: ((value: SearchResult[]) => void) | null = null;
+	private lastQuery = '';
+	private lastResults: SearchResult[] = [];
 
 	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app);
@@ -259,20 +266,124 @@ class UltraSearchModal extends SuggestModal<LineSearchResult> {
 		this.emptyStateText = 'No matching results found.';
 	}
 
-	getSuggestions(query: string): LineSearchResult[] {
+	onOpen() {
+		super.onOpen();
+
+		// Add footer color coding legend at the bottom of the modal window
+		const footerEl = this.modalEl.createDiv({ cls: 'ultra-search-footer' });
+		
+		footerEl.createSpan({ cls: 'ultra-search-legend-title', text: 'Search Types: ' });
+		
+		footerEl.createSpan({ cls: 'ultra-search-badge badge-line', text: 'Line' });
+		footerEl.createSpan({ cls: 'ultra-search-legend-desc', text: ' Line Match' });
+		
+		footerEl.createSpan({ cls: 'ultra-search-badge badge-file', text: 'File' });
+		footerEl.createSpan({ cls: 'ultra-search-legend-desc', text: ' File Name Match' });
+	}
+
+	getSuggestions(query: string): SearchResult[] | Promise<SearchResult[]> {
+		// Clean the query terms for highlighting
 		const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 0);
 		this.terms = terms;
 
 		if (terms.length < this.plugin.settings.minQueryLength) {
+			if (this.searchTimeoutId !== null) {
+				window.clearTimeout(this.searchTimeoutId);
+				this.searchTimeoutId = null;
+			}
+			if (this.activeResolve) {
+				this.activeResolve([]);
+				this.activeResolve = null;
+			}
+			this.lastQuery = '';
+			this.lastResults = [];
 			return [];
 		}
 
-		const results: LineSearchResult[] = [];
+		// Cache optimization: If query hasn't changed, return cached results immediately
+		if (query === this.lastQuery) {
+			return this.lastResults;
+		}
+
+		// Cancel existing timeout and resolve previous search promise with empty list
+		if (this.searchTimeoutId !== null) {
+			window.clearTimeout(this.searchTimeoutId);
+		}
+		if (this.activeResolve) {
+			this.activeResolve([]);
+			this.activeResolve = null;
+		}
+
+		// Return debounced promise (200ms delay) to prevent UI block while typing
+		return new Promise((resolve) => {
+			this.activeResolve = resolve;
+			this.searchTimeoutId = window.setTimeout(() => {
+				const results = this.performSearch(query);
+				this.lastQuery = query;
+				this.lastResults = results;
+				this.activeResolve = null;
+				this.searchTimeoutId = null;
+				resolve(results);
+			}, 200);
+		});
+	}
+
+	private performSearch(query: string): SearchResult[] {
+		const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+		const results: SearchResult[] = [];
 
 		for (const [filePath, lines] of this.plugin.index.entries()) {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file || !(file instanceof TFile)) continue;
 
+			// 1. Match File Name
+			let fileMatchesAll = true;
+			let fileTotalScore = 0;
+			const fileLower = file.name.toLowerCase();
+
+			for (const term of terms) {
+				const match = fuzzyMatch(fileLower, term);
+				if (!match.matches) {
+					fileMatchesAll = false;
+					break;
+				}
+				fileTotalScore += match.score;
+			}
+
+			if (fileMatchesAll) {
+				// Order bonus: if terms appear in the same order as in the query
+				if (terms.length > 1) {
+					let lastIdx = -1;
+					let inOrder = true;
+					for (const term of terms) {
+						const idx = fileLower.indexOf(term);
+						if (idx !== -1 && idx > lastIdx) {
+							lastIdx = idx;
+						} else {
+							inOrder = false;
+							break;
+						}
+					}
+					if (inOrder) {
+						fileTotalScore += 20;
+					}
+				}
+
+				// Penalize long file names slightly to prioritize shorter ones
+				fileTotalScore -= file.name.length * 0.01;
+
+				// Give file name match a slight boost so it ranks higher than individual line matches
+				fileTotalScore += 10;
+
+				results.push({
+					type: 'file',
+					file,
+					text: file.name,
+					score: fileTotalScore
+				});
+			}
+
+			// 2. Match Lines
 			for (const line of lines) {
 				let matchesAll = true;
 				let totalScore = 0;
@@ -310,6 +421,7 @@ class UltraSearchModal extends SuggestModal<LineSearchResult> {
 					totalScore -= line.text.length * 0.01;
 
 					results.push({
+						type: 'line',
 						file,
 						lineNumber: line.lineNumber,
 						text: line.text,
@@ -325,7 +437,7 @@ class UltraSearchModal extends SuggestModal<LineSearchResult> {
 		return results.slice(0, this.plugin.settings.maxResults);
 	}
 
-	renderSuggestion(suggestion: LineSearchResult, el: HTMLElement) {
+	renderSuggestion(suggestion: SearchResult, el: HTMLElement) {
 		el.addClass('ultra-search-suggestion');
 		const contentEl = el.createDiv({ cls: 'suggestion-content' });
 		const titleEl = contentEl.createDiv({ cls: 'suggestion-title' });
@@ -335,8 +447,16 @@ class UltraSearchModal extends SuggestModal<LineSearchResult> {
 
 		const noteEl = contentEl.createDiv({ cls: 'suggestion-note' });
 		noteEl.createSpan({ cls: 'ultra-search-file', text: suggestion.file.path });
-		noteEl.createSpan({ cls: 'ultra-search-separator', text: ' : ' });
-		noteEl.createSpan({ cls: 'ultra-search-linenumber', text: `Line ${suggestion.lineNumber}` });
+		
+		if (suggestion.type === 'line' && suggestion.lineNumber !== undefined) {
+			noteEl.createSpan({ cls: 'ultra-search-separator', text: ' : ' });
+			noteEl.createSpan({ cls: 'ultra-search-linenumber', text: `Line ${suggestion.lineNumber}` });
+		}
+
+		// Create badge on the right
+		const badgeClass = suggestion.type === 'line' ? 'badge-line' : 'badge-file';
+		const badgeText = suggestion.type === 'line' ? 'Line' : 'File';
+		el.createDiv({ cls: `ultra-search-badge ${badgeClass}`, text: badgeText });
 	}
 
 	// Custom inline text highlighter
@@ -414,30 +534,33 @@ class UltraSearchModal extends SuggestModal<LineSearchResult> {
 	}
 
 	// Navigate to selected file and line
-	onChooseSuggestion(suggestion: LineSearchResult, evt: MouseEvent | KeyboardEvent): void {
+	onChooseSuggestion(suggestion: SearchResult, evt: MouseEvent | KeyboardEvent): void {
 		const leaf = this.app.workspace.getLeaf(Keymap.isModifier(evt, 'Mod'));
 
 		const openAndScroll = async () => {
 			await leaf.openFile(suggestion.file, { state: { mode: 'source' } });
-			const setEditorCursor = () => {
-				const view = leaf.view;
-				if (view instanceof MarkdownView) {
-					const editor = view.editor;
-					const pos = { line: suggestion.lineNumber - 1, ch: 0 };
-					editor.setCursor(pos);
-					editor.scrollIntoView({ from: pos, to: pos }, true);
-					editor.focus();
-					return true;
-				}
-				return false;
-			};
+			
+			if (suggestion.type === 'line' && suggestion.lineNumber !== undefined) {
+				const setEditorCursor = () => {
+					const view = leaf.view;
+					if (view instanceof MarkdownView) {
+						const editor = view.editor;
+						const pos = { line: suggestion.lineNumber! - 1, ch: 0 };
+						editor.setCursor(pos);
+						editor.scrollIntoView({ from: pos, to: pos }, true);
+						editor.focus();
+						return true;
+					}
+					return false;
+				};
 
-			// Try setting cursor immediately
-			if (!setEditorCursor()) {
-				// Fallback with a short delay if editor was not yet instantiated
-				window.setTimeout(() => {
-					setEditorCursor();
-				}, 50);
+				// Try setting cursor immediately
+				if (!setEditorCursor()) {
+					// Fallback with a short delay if editor was not yet instantiated
+					window.setTimeout(() => {
+						setEditorCursor();
+					}, 50);
+				}
 			}
 		};
 
