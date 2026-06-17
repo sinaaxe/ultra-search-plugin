@@ -10,13 +10,13 @@ import {
 } from 'obsidian';
 
 // Settings interface
-interface LineSearchSettings {
+interface UltraSearchSettings {
 	maxResults: number;
 	minQueryLength: number;
 	excludeFolders: string;
 }
 
-const DEFAULT_SETTINGS: LineSearchSettings = {
+const DEFAULT_SETTINGS: UltraSearchSettings = {
 	maxResults: 10,
 	minQueryLength: 1,
 	excludeFolders: ''
@@ -108,8 +108,8 @@ function fuzzyMatch(textLower: string, queryLower: string): { matches: boolean; 
 }
 
 // Core Plugin Class
-export default class LineSearchPlugin extends Plugin {
-	settings!: LineSearchSettings;
+export default class UltraSearchPlugin extends Plugin {
+	settings!: UltraSearchSettings;
 	index: Map<string, IndexedLine[]> = new Map();
 	isIndexing = false;
 
@@ -118,15 +118,15 @@ export default class LineSearchPlugin extends Plugin {
 
 		// Add status bar indicator
 		const statusBar = this.addStatusBarItem();
-		statusBar.setText('Line Search: Initializing...');
+		statusBar.setText('UltraSearch: Initializing...');
 
 		// Index files when workspace is ready
 		this.app.workspace.onLayoutReady(async () => {
-			statusBar.setText('Line Search: Indexing...');
+			statusBar.setText('UltraSearch: Indexing...');
 			this.isIndexing = true;
 			await this.buildIndex();
 			this.isIndexing = false;
-			statusBar.setText('Line Search: Ready');
+			statusBar.setText('UltraSearch: Ready');
 			// Remove the status bar item after a short delay
 			window.setTimeout(() => {
 				statusBar.remove();
@@ -134,8 +134,8 @@ export default class LineSearchPlugin extends Plugin {
 		});
 
 		// Ribbon icon for quick access
-		this.addRibbonIcon('search', 'Line Search', () => {
-			new LineSearchModal(this.app, this).open();
+		this.addRibbonIcon('search', 'UltraSearch', () => {
+			new UltraSearchModal(this.app, this).open();
 		});
 
 		// Command palette command
@@ -143,12 +143,12 @@ export default class LineSearchPlugin extends Plugin {
 			id: 'open',
 			name: 'Open',
 			callback: () => {
-				new LineSearchModal(this.app, this).open();
+				new UltraSearchModal(this.app, this).open();
 			}
 		});
 
 		// Settings tab registration
-		this.addSettingTab(new LineSearchSettingTab(this.app, this));
+		this.addSettingTab(new UltraSearchSettingTab(this.app, this));
 
 		// Register vault event handlers to update the index incrementally
 		this.registerEvent(this.app.vault.on('modify', async (file) => {
@@ -178,7 +178,7 @@ export default class LineSearchPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const loadedData = (await this.loadData()) as Partial<LineSearchSettings> | null;
+		const loadedData = (await this.loadData()) as Partial<UltraSearchSettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
 	}
 
@@ -238,7 +238,7 @@ export default class LineSearchPlugin extends Plugin {
 			}
 			this.index.set(file.path, lines);
 		} catch (e) {
-			console.error(`[Line Search] Error reading file ${file.path}:`, e);
+			console.error(`[UltraSearch] Error reading file ${file.path}:`, e);
 		}
 	}
 
@@ -248,15 +248,15 @@ export default class LineSearchPlugin extends Plugin {
 }
 
 // Suggestion Modal Implementation
-class LineSearchModal extends SuggestModal<LineSearchResult> {
-	plugin: LineSearchPlugin;
+class UltraSearchModal extends SuggestModal<LineSearchResult> {
+	plugin: UltraSearchPlugin;
 	terms: string[] = [];
 
-	constructor(app: App, plugin: LineSearchPlugin) {
+	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app);
 		this.plugin = plugin;
-		this.setPlaceholder('Type to search lines (fuzzy & out of order)...');
-		this.emptyStateText = 'No matching lines found.';
+		this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)...');
+		this.emptyStateText = 'No matching results found.';
 	}
 
 	getSuggestions(query: string): LineSearchResult[] {
@@ -326,7 +326,7 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 	}
 
 	renderSuggestion(suggestion: LineSearchResult, el: HTMLElement) {
-		el.addClass('line-search-suggestion');
+		el.addClass('ultra-search-suggestion');
 		const contentEl = el.createDiv({ cls: 'suggestion-content' });
 		const titleEl = contentEl.createDiv({ cls: 'suggestion-title' });
 
@@ -334,9 +334,9 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 		this.renderHighlightedText(titleEl, suggestion.text, this.terms);
 
 		const noteEl = contentEl.createDiv({ cls: 'suggestion-note' });
-		noteEl.createSpan({ cls: 'line-search-file', text: suggestion.file.path });
-		noteEl.createSpan({ cls: 'line-search-separator', text: ' : ' });
-		noteEl.createSpan({ cls: 'line-search-linenumber', text: `Line ${suggestion.lineNumber}` });
+		noteEl.createSpan({ cls: 'ultra-search-file', text: suggestion.file.path });
+		noteEl.createSpan({ cls: 'ultra-search-separator', text: ' : ' });
+		noteEl.createSpan({ cls: 'ultra-search-linenumber', text: `Line ${suggestion.lineNumber}` });
 	}
 
 	// Custom inline text highlighter
@@ -446,10 +446,10 @@ class LineSearchModal extends SuggestModal<LineSearchResult> {
 }
 
 // Settings Tab UI
-class LineSearchSettingTab extends PluginSettingTab {
-	plugin: LineSearchPlugin;
+class UltraSearchSettingTab extends PluginSettingTab {
+	plugin: UltraSearchPlugin;
 
-	constructor(app: App, plugin: LineSearchPlugin) {
+	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -474,7 +474,7 @@ class LineSearchSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Maximum results')
-			.setDesc('Maximum number of matching lines to display.')
+			.setDesc('Maximum number of matching results to display.')
 			.addText(text => text
 				.setPlaceholder('10')
 				.setValue(String(this.plugin.settings.maxResults))

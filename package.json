@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-line-search",
+	"name": "obsidian-ultra-search",
 	"version": "1.0.3",
-	"description": "Fuzzy and out-of-order line search across all Markdown files in Obsidian.",
+	"description": "Fuzzy, out-of-order, and typo-tolerant granular search with line-level navigation in Obsidian.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -13,6 +13,8 @@
 		"plugin",
 		"search",
 		"fuzzy",
+		"granular",
+		"block",
 		"line"
 	],
 	"author": "Antigravity",
