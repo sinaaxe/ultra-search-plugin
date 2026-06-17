@@ -1,9 +1,9 @@
 {
-	"id": "ultra-search",
-	"name": "UltraSearch",
+	"id": "line-search",
+	"name": "Line Search",
 	"version": "1.0.3",
 	"minAppVersion": "1.12.7",
-	"description": "Fuzzy, out-of-order, and typo-tolerant granular search with line-level navigation across all Markdown files in the vault.",
+	"description": "Uses each line as a separate unit for fuzzy and out-of-order word search across all Markdown files in the vault.",
 	"author": "sinaaxe",
 	"authorUrl": "https://github.com/sinaaxe",
 	"isDesktopOnly": false

@@ -1,6 +1,6 @@
-# Obsidian UltraSearch Plugin
+# Obsidian Line Search Plugin
 
-**UltraSearch** is a high-performance, community plugin for [Obsidian](https://obsidian.md) that lets you search and rank individual lines and segments across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight in-memory index that updates incrementally in real time.
+**Line Search** is a high-performance, community plugin for [Obsidian](https://obsidian.md) that lets you search and rank individual lines across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight in-memory index that updates incrementally in real time.
 
 ---
 
@@ -17,7 +17,7 @@
    - **Dynamic Scoring**:
      - Higher scores for exact matches and word-boundary starts.
      - Sequence order bonus (+20 score) when terms appear in the same order as the query.
-     - Slightly penalizes long lines (by 0.01 per character) to favor short and concise matches.
+     - Slighly penalizes long lines (by 0.01 per character) to favor short and concise matches.
      - Typo penalty applied for fuzzy matches based on Levenshtein distance.
 
 3. **Premium Suggestion UI**:
@@ -39,7 +39,7 @@
 
 ## How to Use
 
-- Open the Command Palette (`Ctrl/Cmd + P`), type `UltraSearch: Open`, and press `Enter`. (Alternatively, click the magnifying glass ribbon icon on the left sidebar).
+- Open the Command Palette (`Ctrl/Cmd + P`), type `Line Search: Open line search`, and press `Enter`. (Alternatively, click the magnifying glass ribbon icon on the left sidebar).
 - Type your search terms (separated by spaces).
 - Use the arrow keys to navigate matching lines, and hit `Enter` to open and jump directly to that line.
 
@@ -84,9 +84,9 @@ If you are compiling this plugin from source:
    This will generate a `build/` folder containing the compiled code bundle (`main.js`), metadata (`manifest.json`), and stylesheets (`styles.css`).
 
 ### Loading into Obsidian
-1. Copy the `build` folder into your Obsidian vault's plugins folder under the name `ultra-search`:
+1. Copy the `build` folder into your Obsidian vault's plugins folder under the name `line-search`:
    ```bash
-   cp -r build <path-to-your-vault>/.obsidian/plugins/ultra-search
+   cp -r build <path-to-your-vault>/.obsidian/plugins/line-search
    ```
 2. Open Obsidian and go to **Settings** -> **Community plugins**.
-3. Enable **UltraSearch** from the list of installed plugins.
+3. Enable **Line Search** from the list of installed plugins.
