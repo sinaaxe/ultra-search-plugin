@@ -267,7 +267,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 	}
 
 	onOpen() {
-		super.onOpen();
+		void super.onOpen();
 
 		// Add footer color coding legend at the bottom of the modal window
 		const footerEl = this.modalEl.createDiv({ cls: 'ultra-search-footer' });

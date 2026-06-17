@@ -1,7 +1,7 @@
 {
 	"id": "ultra-search",
 	"name": "UltraSearch",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"minAppVersion": "1.12.7",
 	"description": "Fuzzy, out-of-order, and typo-tolerant search across file names and line contents with color-coded navigation across all Markdown files in the vault.",
 	"author": "sinaaxe",
