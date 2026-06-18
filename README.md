@@ -1,6 +1,14 @@
 # Obsidian UltraSearch Plugin
 
-**UltraSearch** is a high-performance community plugin for [Obsidian](https://obsidian.md) that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight, incrementally-updated index and delivering a lag-free, debounced typing experience.
+**UltraSearch** is a high-performance community Obsidian plugin that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight, incrementally-updated index and delivering a lag-free, debounced typing experience.
+
+![UltraSearch](media/image.png)
+
+---
+
+## Use Cases
+
+If you rely on daily notes to capture thoughts, tasks, or lists without adding tags or backlinks, finding specific information later can be challenging. Standard search tools often fail to locate these details or return irrelevant results. UltraSearch solves this by indexing and searching at the individual line level, making your notes instantly and precisely searchable.
 
 ---
 
