@@ -1,6 +1,8 @@
+import type { TAbstractFile } from 'obsidian';
+
 export interface SearchResult {
 	type: 'line' | 'file';
-	file: any; // We'll cast to TFile in main plugin to avoid tight coupling
+	file: TAbstractFile;
 	lineNumber?: number;
 	text: string;
 	score: number;

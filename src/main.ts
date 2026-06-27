@@ -8,7 +8,8 @@ import {
 	PluginSettingTab,
 	Setting,
 	Notice,
-	MarkdownRenderer
+	MarkdownRenderer,
+	Component
 } from 'obsidian';
 
 import { UltraSearchSettings, DEFAULT_SETTINGS } from './settings';
@@ -66,7 +67,7 @@ export default class UltraSearchPlugin extends Plugin {
 		this.addSettingTab(new UltraSearchSettingTab(this.app, this));
 
 		// Register vault event handlers to update the index incrementally
-		const isMdFile = (file: any): file is TFile => file instanceof TFile && file.extension === 'md';
+		const isMdFile = (file: import('obsidian').TAbstractFile): file is TFile => file instanceof TFile && file.extension === 'md';
 
 		this.registerEvent(this.app.vault.on('modify', async (file) => {
 			if (isMdFile(file)) await this.updateFileIndex(file);
@@ -181,12 +182,16 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 	private geminiReferenceResults: SearchResult[] = [];
 	private lastGeminiQuery: string = '';
 	private currentApiKey: string | null = null;
+	private renderComponents: Component[] = [];
 
 	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app);
 		this.plugin = plugin;
 		this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)... (Press Tab to switch)');
 		this.emptyStateText = 'No matching results found.';
+	}
+	onClose() {
+		this.renderComponents.forEach(c => c.unload());
 	}
 
 	onOpen() {
@@ -216,22 +221,11 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 		if (promptContainer) {
 			this.geminiContainerEl = createDiv({ cls: 'ultra-search-gemini-container' });
 			promptContainer.insertBefore(this.geminiContainerEl, this.resultContainerEl);
-			this.geminiContainerEl.style.display = 'none';
-			this.geminiContainerEl.style.padding = '10px';
-			this.geminiContainerEl.style.borderTop = '1px solid var(--background-modifier-border)';
 
 			const toolbarEl = this.geminiContainerEl.createDiv({ cls: 'gemini-toolbar' });
 			this.geminiToolbarEl = toolbarEl;
-			toolbarEl.style.display = 'flex';
-			toolbarEl.style.justifyContent = 'space-between';
-			toolbarEl.style.marginBottom = '10px';
-			toolbarEl.style.alignItems = 'center';
-			toolbarEl.style.gap = '10px';
 
-			const controlsWrapper = toolbarEl.createDiv();
-			controlsWrapper.style.display = 'flex';
-			controlsWrapper.style.gap = '15px';
-			controlsWrapper.style.alignItems = 'center';
+			const controlsWrapper = toolbarEl.createDiv({ cls: 'gemini-controls-wrapper' });
 
 			const contextWrapper = controlsWrapper.createDiv();
 			contextWrapper.createSpan({ text: 'Context: ', cls: 'gemini-context-label' });
@@ -244,10 +238,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 				this.geminiContextMode = (e.target as HTMLSelectElement).value as 'file' | 'folder' | 'vault';
 			});
 
-			const includeRefsWrapper = controlsWrapper.createDiv();
-			includeRefsWrapper.style.display = 'flex';
-			includeRefsWrapper.style.alignItems = 'center';
-			includeRefsWrapper.style.gap = '5px';
+			const includeRefsWrapper = controlsWrapper.createDiv({ cls: 'gemini-include-refs-wrapper' });
 			const includeRefsCheckbox = includeRefsWrapper.createEl('input', { type: 'checkbox' });
 			includeRefsCheckbox.addEventListener('change', (e) => {
 				this.geminiIncludeReferences = (e.target as HTMLInputElement).checked;
@@ -262,20 +253,15 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 			modelDropdownEl.createEl('option', { value: 'gemini-3.1-pro', text: 'Gemini 3.1 Pro' });
 			modelDropdownEl.createEl('option', { value: 'gemini-3.1-flash-lite', text: 'Gemini 3.1 Flash Lite' });
 			modelDropdownEl.value = this.plugin.settings.geminiModel;
-			modelDropdownEl.addEventListener('change', async (e) => {
+			modelDropdownEl.addEventListener('change', (e) => {
 				this.plugin.settings.geminiModel = (e.target as HTMLSelectElement).value;
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 			});
 
 			const searchBtn = toolbarEl.createEl('button', { text: 'Ask Gemini', cls: 'mod-cta' });
 			searchBtn.addEventListener('click', () => void this.triggerGeminiSearch());
 
 			this.geminiResultEl = this.geminiContainerEl.createDiv({ cls: 'gemini-result markdown-rendered' });
-			this.geminiResultEl.style.marginTop = '10px';
-			this.geminiResultEl.style.minHeight = '50px';
-			this.geminiResultEl.style.maxHeight = '50vh';
-			this.geminiResultEl.style.overflowY = 'auto';
-			this.geminiResultEl.style.userSelect = 'text';
 		}
 
 		// Add footer color coding legend at the bottom of the modal window
@@ -523,28 +509,30 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 		const leaf = this.app.workspace.getLeaf(Keymap.isModifier(evt, 'Mod'));
 
 		const openAndScroll = async () => {
-			await leaf.openFile(suggestion.file, { state: { mode: 'source' } });
+			if (suggestion.file instanceof TFile) {
+				await leaf.openFile(suggestion.file, { state: { mode: 'source' } });
 
-			if (suggestion.type === 'line' && suggestion.lineNumber !== undefined) {
-				const setEditorCursor = () => {
-					const view = leaf.view;
-					if (view instanceof MarkdownView) {
-						const editor = view.editor;
-						const pos = { line: suggestion.lineNumber! - 1, ch: 0 };
-						editor.setCursor(pos);
-						editor.scrollIntoView({ from: pos, to: pos }, true);
-						editor.focus();
-						return true;
+				if (suggestion.type === 'line' && suggestion.lineNumber !== undefined) {
+					const setEditorCursor = () => {
+						const view = leaf.view;
+						if (view instanceof MarkdownView) {
+							const editor = view.editor;
+							const pos = { line: suggestion.lineNumber! - 1, ch: 0 };
+							editor.setCursor(pos);
+							editor.scrollIntoView({ from: pos, to: pos }, true);
+							editor.focus();
+							return true;
+						}
+						return false;
+					};
+
+					// Try setting cursor immediately
+					if (!setEditorCursor()) {
+						// Fallback with a short delay if editor was not yet instantiated
+						window.setTimeout(() => {
+							setEditorCursor();
+						}, 50);
 					}
-					return false;
-				};
-
-				// Try setting cursor immediately
-				if (!setEditorCursor()) {
-					// Fallback with a short delay if editor was not yet instantiated
-					window.setTimeout(() => {
-						setEditorCursor();
-					}, 50);
 				}
 			}
 		};
@@ -556,35 +544,31 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 		if (this.searchMode === 'gemini') {
 			this.setPlaceholder('Ask Gemini (Press Tab to switch to Fuzzy Search)...');
 			this.emptyStateText = '';
-			this.resultContainerEl.style.display = 'block';
-			if (this.footerEl) this.footerEl.style.display = 'none';
+			this.resultContainerEl.style.setProperty('display', 'block');
+			if (this.footerEl) this.footerEl.style.setProperty('display', 'none');
 			if (this.geminiContainerEl) {
-				this.geminiContainerEl.style.display = 'block';
+				this.geminiContainerEl.style.setProperty('display', 'block');
 
 				if (!this.currentApiKey) {
-					if (this.geminiToolbarEl) this.geminiToolbarEl.style.display = 'none';
+					if (this.geminiToolbarEl) this.geminiToolbarEl.style.setProperty('display', 'none');
 					if (this.geminiResultEl) {
 						this.geminiResultEl.empty();
 						const warningEl = this.geminiResultEl.createDiv({ cls: 'gemini-warning' });
-						warningEl.style.color = 'var(--text-warning)';
-						warningEl.style.padding = '10px';
-						warningEl.style.border = '1px solid var(--background-modifier-border-warning)';
-						warningEl.style.borderRadius = '5px';
-						warningEl.style.backgroundColor = 'var(--background-secondary)';
-						warningEl.style.marginTop = '10px';
-						warningEl.innerHTML = `<strong>Gemini Search Disabled</strong><br>Please select and set a valid Gemini API Key secret in the plugin settings.`;
+						warningEl.createEl('strong', { text: 'Gemini Search Disabled' });
+						warningEl.createEl('br');
+						warningEl.appendText('Please select and set a valid Gemini API Key secret in the plugin settings.');
 					}
 				} else {
-					if (this.geminiToolbarEl) this.geminiToolbarEl.style.display = 'flex';
+					if (this.geminiToolbarEl) this.geminiToolbarEl.style.setProperty('display', 'flex');
 				}
 			}
 			this.inputEl.dispatchEvent(new Event('input'));
 		} else {
 			this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)... (Press Tab to switch)');
 			this.emptyStateText = 'No matching results found.';
-			this.resultContainerEl.style.display = 'block';
-			if (this.footerEl) this.footerEl.style.display = 'block';
-			if (this.geminiContainerEl) this.geminiContainerEl.style.display = 'none';
+			this.resultContainerEl.style.setProperty('display', 'block');
+			if (this.footerEl) this.footerEl.style.setProperty('display', 'flex');
+			if (this.geminiContainerEl) this.geminiContainerEl.style.setProperty('display', 'none');
 			this.inputEl.dispatchEvent(new Event('input'));
 		}
 	}
@@ -625,7 +609,10 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 			if (this.geminiResultEl) {
 				this.geminiResultEl.empty();
 				if (answer) {
-					await MarkdownRenderer.render(this.app, answer, this.geminiResultEl, '', this.plugin);
+					const comp = new Component();
+					comp.load();
+					this.renderComponents.push(comp);
+					await MarkdownRenderer.render(this.app, answer, this.geminiResultEl, '', comp);
 				}
 
 				if (references.length > 0) {
@@ -710,9 +697,9 @@ class UltraSearchSettingTab extends PluginSettingTab {
 				dropdown.addOption('', 'Select a secret...');
 				secrets.forEach(secretId => dropdown.addOption(secretId, secretId));
 				dropdown.setValue(this.plugin.settings.geminiSecretId)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						this.plugin.settings.geminiSecretId = value;
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					});
 			});
 	}

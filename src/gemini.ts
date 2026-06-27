@@ -97,17 +97,17 @@ export async function callGeminiAPI(prompt: string, apiKey: string, model: strin
 	if (response.status !== 200) {
 		let errorMsg = response.text;
 		try {
-			const errorJson = response.json;
+			const errorJson = response.json as { error?: { message?: string } };
 			if (errorJson?.error?.message) {
 				errorMsg = errorJson.error.message;
 			}
-		} catch (e) {
+		} catch {
 			// Ignore JSON parse errors
 		}
 		throw new Error(`API Error (${response.status}): ${errorMsg}`);
 	}
 
-	const data = response.json;
+	const data = response.json as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
 	if (data?.candidates?.[0]?.content?.parts?.[0]?.text) {
 		return data.candidates[0].content.parts[0].text;
 	}
@@ -145,12 +145,12 @@ ${contextText}
 Question: ${query}`;
 
 	const response = await callGeminiAPI(prompt, apiKey, model);
-	let responseObj: any = null;
+	let responseObj: { answer?: string, references?: { path?: string, line?: number }[] } | null = null;
 	try {
 		// Some models might wrap JSON in markdown blocks
 		const cleanResponse = response.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-		responseObj = JSON.parse(cleanResponse);
-	} catch (e) {
+		responseObj = JSON.parse(cleanResponse) as { answer?: string, references?: { path?: string, line?: number }[] };
+	} catch {
 		// Fallback to rendering as markdown if it fails
 		return { answer: response, references: [] };
 	}
@@ -180,7 +180,7 @@ Question: ${query}`;
 							// Fallback if the line is completely empty
 							if (!text) text = `[Empty line ${ref.line}]`;
 						}
-					} catch (e) {
+					} catch {
 						// ignore
 					}
 				}
