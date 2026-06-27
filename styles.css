@@ -119,9 +119,12 @@
 
 /* Gemini Search UI */
 .ultra-search-gemini-container {
-	display: none;
 	padding: 10px;
 	border-top: 1px solid var(--background-modifier-border);
+}
+
+.gemini-hidden {
+	display: none !important;
 }
 
 .gemini-toolbar {

@@ -219,7 +219,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 
 		const promptContainer = this.resultContainerEl.parentElement || this.modalEl;
 		if (promptContainer) {
-			this.geminiContainerEl = createDiv({ cls: 'ultra-search-gemini-container' });
+			this.geminiContainerEl = createDiv({ cls: 'ultra-search-gemini-container gemini-hidden' });
 			promptContainer.insertBefore(this.geminiContainerEl, this.resultContainerEl);
 
 			const toolbarEl = this.geminiContainerEl.createDiv({ cls: 'gemini-toolbar' });
@@ -544,13 +544,13 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 		if (this.searchMode === 'gemini') {
 			this.setPlaceholder('Ask Gemini (Press Tab to switch to Fuzzy Search)...');
 			this.emptyStateText = '';
-			this.resultContainerEl.style.setProperty('display', 'block');
-			if (this.footerEl) this.footerEl.style.setProperty('display', 'none');
+			this.resultContainerEl.toggleClass('gemini-hidden', false);
+			if (this.footerEl) this.footerEl.toggleClass('gemini-hidden', true);
 			if (this.geminiContainerEl) {
-				this.geminiContainerEl.style.setProperty('display', 'block');
+				this.geminiContainerEl.toggleClass('gemini-hidden', false);
 
 				if (!this.currentApiKey) {
-					if (this.geminiToolbarEl) this.geminiToolbarEl.style.setProperty('display', 'none');
+					if (this.geminiToolbarEl) this.geminiToolbarEl.toggleClass('gemini-hidden', true);
 					if (this.geminiResultEl) {
 						this.geminiResultEl.empty();
 						const warningEl = this.geminiResultEl.createDiv({ cls: 'gemini-warning' });
@@ -559,16 +559,16 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 						warningEl.appendText('Please select and set a valid Gemini API Key secret in the plugin settings.');
 					}
 				} else {
-					if (this.geminiToolbarEl) this.geminiToolbarEl.style.setProperty('display', 'flex');
+					if (this.geminiToolbarEl) this.geminiToolbarEl.toggleClass('gemini-hidden', false);
 				}
 			}
 			this.inputEl.dispatchEvent(new Event('input'));
 		} else {
 			this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)... (Press Tab to switch)');
 			this.emptyStateText = 'No matching results found.';
-			this.resultContainerEl.style.setProperty('display', 'block');
-			if (this.footerEl) this.footerEl.style.setProperty('display', 'flex');
-			if (this.geminiContainerEl) this.geminiContainerEl.style.setProperty('display', 'none');
+			this.resultContainerEl.toggleClass('gemini-hidden', false);
+			if (this.footerEl) this.footerEl.toggleClass('gemini-hidden', false);
+			if (this.geminiContainerEl) this.geminiContainerEl.toggleClass('gemini-hidden', true);
 			this.inputEl.dispatchEvent(new Event('input'));
 		}
 	}
@@ -654,11 +654,11 @@ class UltraSearchSettingTab extends PluginSettingTab {
 			.addText(text => text
 				.setPlaceholder('1')
 				.setValue(String(this.plugin.settings.minQueryLength))
-				.onChange(async (value) => {
+				.onChange((value) => {
 					const num = parseInt(value, 10);
 					if (!isNaN(num) && num >= 1) {
 						this.plugin.settings.minQueryLength = num;
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					}
 				}));
 
@@ -668,11 +668,11 @@ class UltraSearchSettingTab extends PluginSettingTab {
 			.addText(text => text
 				.setPlaceholder('10')
 				.setValue(String(this.plugin.settings.maxResults))
-				.onChange(async (value) => {
+				.onChange((value) => {
 					const num = parseInt(value, 10);
 					if (!isNaN(num) && num >= 1) {
 						this.plugin.settings.maxResults = num;
-						await this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 					}
 				}));
 
@@ -682,9 +682,9 @@ class UltraSearchSettingTab extends PluginSettingTab {
 			.addText(text => text
 				.setPlaceholder('templates, archives')
 				.setValue(this.plugin.settings.excludeFolders)
-				.onChange(async (value) => {
+				.onChange((value) => {
 					this.plugin.settings.excludeFolders = value;
-					await this.plugin.saveSettings();
+					void this.plugin.saveSettings();
 					// Rebuild index in the background to apply exclusions
 					void this.plugin.buildIndex();
 				}));
