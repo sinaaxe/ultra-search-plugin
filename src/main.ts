@@ -37,16 +37,18 @@ export default class UltraSearchPlugin extends Plugin {
 		statusBar.setText('UltraSearch: Initializing...');
 
 		// Index files when workspace is ready
-		this.app.workspace.onLayoutReady(async () => {
-			statusBar.setText('UltraSearch: Indexing...');
-			this.isIndexing = true;
-			await this.buildIndex();
-			this.isIndexing = false;
-			statusBar.setText('UltraSearch: Ready');
-			// Remove the status bar item after a short delay
-			window.setTimeout(() => {
-				statusBar.remove();
-			}, 5000);
+		this.app.workspace.onLayoutReady(() => {
+			void (async () => {
+				statusBar.setText('UltraSearch: Indexing...');
+				this.isIndexing = true;
+				await this.buildIndex();
+				this.isIndexing = false;
+				statusBar.setText('UltraSearch: Ready');
+				// Remove the status bar item after a short delay
+				window.setTimeout(() => {
+					statusBar.remove();
+				}, 5000);
+			})();
 		});
 
 		// Ribbon icon for quick access
@@ -69,22 +71,22 @@ export default class UltraSearchPlugin extends Plugin {
 		// Register vault event handlers to update the index incrementally
 		const isMdFile = (file: import('obsidian').TAbstractFile): file is TFile => file instanceof TFile && file.extension === 'md';
 
-		this.registerEvent(this.app.vault.on('modify', async (file) => {
-			if (isMdFile(file)) await this.updateFileIndex(file);
+		this.registerEvent(this.app.vault.on('modify', (file) => {
+			if (isMdFile(file)) void this.updateFileIndex(file);
 		}));
 
-		this.registerEvent(this.app.vault.on('create', async (file) => {
-			if (isMdFile(file)) await this.updateFileIndex(file);
+		this.registerEvent(this.app.vault.on('create', (file) => {
+			if (isMdFile(file)) void this.updateFileIndex(file);
 		}));
 
 		this.registerEvent(this.app.vault.on('delete', (file) => {
 			if (isMdFile(file)) this.removeFileFromIndex(file.path);
 		}));
 
-		this.registerEvent(this.app.vault.on('rename', async (file, oldPath) => {
+		this.registerEvent(this.app.vault.on('rename', (file, oldPath) => {
 			if (isMdFile(file)) {
 				this.removeFileFromIndex(oldPath);
-				await this.updateFileIndex(file);
+				void this.updateFileIndex(file);
 			}
 		}));
 	}
@@ -695,7 +697,7 @@ class UltraSearchSettingTab extends PluginSettingTab {
 			.addDropdown(dropdown => {
 				const secrets = this.app.secretStorage.listSecrets();
 				dropdown.addOption('', 'Select a secret...');
-				secrets.forEach(secretId => dropdown.addOption(secretId, secretId));
+				secrets.forEach(secretId => { dropdown.addOption(secretId, secretId); });
 				dropdown.setValue(this.plugin.settings.geminiSecretId)
 					.onChange((value) => {
 						this.plugin.settings.geminiSecretId = value;
