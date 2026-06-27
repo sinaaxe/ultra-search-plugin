@@ -1,19 +1,20 @@
 # Obsidian UltraSearch Plugin
 
-**UltraSearch** is a high-performance community Obsidian plugin that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It supports **typo-tolerant prefix matching** and **out-of-order multi-word matching** while maintaining a lightweight, incrementally-updated index and delivering a lag-free, debounced typing experience.
+**UltraSearch** is a high-performance community Obsidian plugin that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It also features a powerful **Gemini AI search** to answer complex questions based on your vault's content.
 
-![UltraSearch](media/image.png)
-
+![UltraFuzzySearch](media/fuzzy.png)
+![UltraGeminiSearch](media/gemini.png)
 ---
 
 ## Use Cases
 
-If you rely on daily notes to capture thoughts, tasks, or lists without adding tags or backlinks, finding specific information later can be challenging. Standard search tools often fail to locate these details or return irrelevant results. UltraSearch solves this by indexing and searching at the individual line level, making your notes instantly and precisely searchable.
+If you rely on daily notes to capture thoughts, tasks, or lists without adding tags or backlinks, finding specific information later can be challenging. Standard search tools often fail to locate these details or return irrelevant results. UltraSearch solves this by indexing and searching at the individual line level, making your notes instantly and precisely searchable. For more complex queries, you can seamlessly switch to Gemini search to synthesize intelligent answers directly from your notes.
 
 ---
 
-## Key Features
+## Features
 
+### 🔍 Fuzzy Search
 1. **Unified File Name & Line-Level Search**:
    - Searches every file name and every line of every Markdown file independently.
    - Shows both matching file names and matching lines directly in the suggestions list.
@@ -40,13 +41,36 @@ If you rely on daily notes to capture thoughts, tasks, or lists without adding t
    - Hitting `Enter` or clicking on a file suggestion opens the file at the top.
    - Support for opening files in new tabs/panes by holding the `Ctrl`/`Cmd` modifier key.
 
+### 🤖 Gemini AI Search
+1. **AI-Powered Answers**:
+   - Press `Tab` while the search modal is open to switch to Gemini Search mode.
+   - Ask complex questions and Gemini will synthesize an answer based on your notes.
+2. **Flexible Context Selection**:
+   - Choose the context scope for the AI: Current File, Current Folder, or Entire Vault.
+   - Option to include linked pages in the context.
+3. **Markdown Rendering & Citations**:
+   - The AI's response is rendered in standard Markdown right inside the modal.
+   - Gemini cites its sources, which appear as clickable line or file matches below the answer, allowing you to quickly jump to the source material.
+
 ---
 
 ## How to Use
 
 - Open the Command Palette (`Ctrl/Cmd + P`), type `UltraSearch: Open`, and press `Enter`. (Alternatively, click the magnifying glass ribbon icon on the left sidebar).
-- Type your search terms (separated by spaces).
-- Use the arrow keys to navigate matching files and lines, and hit `Enter` to open.
+- **Fuzzy Search**: Type your search terms (separated by spaces). Use the arrow keys to navigate matching files and lines.
+- **Gemini Search**: Press `Tab` to switch to Gemini mode. Configure your context and model from the toolbar, type your question, and click "Ask Gemini".
+
+---
+
+## Adding your Gemini API Key
+
+To use the Gemini AI search feature, you need to provide a Gemini API key. For security reasons, the key must be stored securely using the Obsidian keychain rather than in plaintext settings.
+
+1. **Get an API Key**: Obtain a free API key from [Google AI Studio](https://aistudio.google.com/).
+2. **Store the Secret**: Open **Keychain** in Obsidian and save your API key securely under a Secret ID (e.g., `gemini-api-key`).
+3. **Configure UltraSearch**:
+   - Go to Obsidian **Settings** -> **UltraSearch**.
+   - Under the "Gemini API Key Secret" setting, select the Secret ID you used in the previous step.
 
 ---
 
@@ -55,6 +79,7 @@ If you rely on daily notes to capture thoughts, tasks, or lists without adding t
 * **Minimum query length**: The minimum characters you need to type before the search starts.
 * **Maximum results**: The maximum number of results to display in the list (defaults to `10` to keep rendering fast).
 * **Exclude folders**: Comma-separated list of directories (e.g., `templates, archive`) to ignore during line indexing.
+* **Gemini API Key Secret**: Select the securely stored Secret ID containing your API key.
 
 ---
 
@@ -62,8 +87,8 @@ If you rely on daily notes to capture thoughts, tasks, or lists without adding t
 
 ### Vault Enumeration & Data Access
 This plugin uses the Obsidian API (`app.vault.getMarkdownFiles`) to discover Markdown files in your vault.
-* **Why it is needed**: This is required to read file contents and build a local, in-memory search index.
-* **Privacy & Local-First**: All indexing, scanning, and search matching run entirely on your local machine. No vault data, file paths, or search queries ever leave your device or get transmitted over the internet.
+* **Fuzzy Search (Local-First)**: All indexing, scanning, and search matching run entirely on your local machine. No vault data, file paths, or search queries ever leave your device or get transmitted over the internet.
+* **Gemini Search**: When using Gemini Search, the text contents of files within your selected context scope (File, Folder, or Vault) will be sent to the Google Gemini API to generate an answer. Be mindful of sensitive data when using the "Entire Vault" context.
 
 ---
 

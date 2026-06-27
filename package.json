@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-ultra-search",
-	"version": "1.0.6",
+	"version": "1.5.0",
 	"description": "Fuzzy, out-of-order, and typo-tolerant search across file names and line contents with color-coded navigation in Obsidian.",
 	"main": "main.js",
 	"type": "module",
@@ -25,7 +25,7 @@
 	"devDependencies": {
 		"@types/node": "^25.9.2",
 		"esbuild": "^0.28.0",
-		"obsidian": "latest",
+		"obsidian": "^1.13.1",
 		"typescript": "^6.0.3"
 	}
 }

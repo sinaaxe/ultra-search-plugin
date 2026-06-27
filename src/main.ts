@@ -6,106 +6,20 @@ import {
 	MarkdownView,
 	Keymap,
 	PluginSettingTab,
-	Setting
+	Setting,
+	Notice,
+	MarkdownRenderer
 } from 'obsidian';
 
-// Settings interface
-interface UltraSearchSettings {
-	maxResults: number;
-	minQueryLength: number;
-	excludeFolders: string;
-}
-
-const DEFAULT_SETTINGS: UltraSearchSettings = {
-	maxResults: 10,
-	minQueryLength: 1,
-	excludeFolders: ''
-};
+import { UltraSearchSettings, DEFAULT_SETTINGS } from './settings';
+import { SearchResult, fuzzyMatch, minPrefixLevenshteinDistance, getInOrderBonus, getMaxTypos } from './search';
+import { performGeminiSearch } from './gemini';
 
 // Cached representation of a line
 interface IndexedLine {
 	text: string;
 	lowerText: string;
 	lineNumber: number;
-}
-
-// Search result item
-interface SearchResult {
-	type: 'line' | 'file';
-	file: TFile;
-	lineNumber?: number;
-	text: string;
-	score: number;
-}
-
-// Prefix Levenshtein Distance for typo-tolerant matching
-function minPrefixLevenshteinDistance(word: string, query: string): number {
-	if (query.length === 0) return 0;
-	if (word.length === 0) return query.length;
-
-	let prevRow: number[] = Array<number>(word.length + 1).fill(0);
-	let currRow: number[] = Array<number>(word.length + 1).fill(0);
-
-	for (let i = 1; i <= query.length; i++) {
-		currRow[0] = i;
-		for (let j = 1; j <= word.length; j++) {
-			const indicator = query[i - 1] === word[j - 1] ? 0 : 1;
-			currRow[j] = Math.min(
-				prevRow[j]! + 1, // deletion
-				currRow[j - 1]! + 1, // insertion
-				prevRow[j - 1]! + indicator // substitution
-			);
-		}
-		const temp = prevRow;
-		prevRow = currRow;
-		currRow = temp;
-	}
-
-	return Math.min(...prevRow);
-}
-
-// Word-level typo-tolerant fuzzy match with scoring
-function fuzzyMatch(textLower: string, queryLower: string): { matches: boolean; score: number } {
-	const qLen = queryLower.length;
-	if (qLen === 0) return { matches: true, score: 0 };
-
-	// Exact substring matches get highest score
-	const subIdx = textLower.indexOf(queryLower);
-	if (subIdx !== -1) {
-		let score = 80;
-		if (subIdx === 0 || !/[a-z0-9]/.test(textLower[subIdx - 1] || ' ')) {
-			score += 15;
-		}
-		score += qLen * 2;
-		return { matches: true, score };
-	}
-
-	let maxTypos = 0;
-	if (qLen >= 3 && qLen <= 5) maxTypos = 1;
-	else if (qLen >= 6) maxTypos = 2;
-
-	if (maxTypos === 0) {
-		return { matches: false, score: 0 };
-	}
-
-	const words = textLower.split(/[^a-z0-9]+/);
-	let bestDist = Infinity;
-
-	for (const word of words) {
-		if (word.length === 0) continue;
-
-		const dist = minPrefixLevenshteinDistance(word, queryLower);
-		if (dist <= maxTypos && dist < bestDist) {
-			bestDist = dist;
-		}
-	}
-
-	if (bestDist <= maxTypos) {
-		const score = 50 - (bestDist * 10) + (qLen * 2);
-		return { matches: true, score: Math.max(1, score) };
-	}
-
-	return { matches: false, score: 0 };
 }
 
 // Core Plugin Class
@@ -152,26 +66,22 @@ export default class UltraSearchPlugin extends Plugin {
 		this.addSettingTab(new UltraSearchSettingTab(this.app, this));
 
 		// Register vault event handlers to update the index incrementally
+		const isMdFile = (file: any): file is TFile => file instanceof TFile && file.extension === 'md';
+
 		this.registerEvent(this.app.vault.on('modify', async (file) => {
-			if (file instanceof TFile && file.extension === 'md') {
-				await this.updateFileIndex(file);
-			}
+			if (isMdFile(file)) await this.updateFileIndex(file);
 		}));
 
 		this.registerEvent(this.app.vault.on('create', async (file) => {
-			if (file instanceof TFile && file.extension === 'md') {
-				await this.updateFileIndex(file);
-			}
+			if (isMdFile(file)) await this.updateFileIndex(file);
 		}));
 
 		this.registerEvent(this.app.vault.on('delete', (file) => {
-			if (file instanceof TFile && file.extension === 'md') {
-				this.removeFileFromIndex(file.path);
-			}
+			if (isMdFile(file)) this.removeFileFromIndex(file.path);
 		}));
 
 		this.registerEvent(this.app.vault.on('rename', async (file, oldPath) => {
-			if (file instanceof TFile && file.extension === 'md') {
+			if (isMdFile(file)) {
 				this.removeFileFromIndex(oldPath);
 				await this.updateFileIndex(file);
 			}
@@ -259,29 +169,138 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 	private lastQuery = '';
 	private lastResults: SearchResult[] = [];
 
+	// Gemini state
+	private searchMode: 'fuzzy' | 'gemini' = 'fuzzy';
+	private geminiContextMode: 'file' | 'folder' | 'vault' = 'file';
+	private geminiIncludeReferences = false;
+	private isGenerating = false;
+	private geminiContainerEl: HTMLElement | null = null;
+	private geminiToolbarEl: HTMLElement | null = null;
+	private geminiResultEl: HTMLElement | null = null;
+	private footerEl: HTMLElement | null = null;
+	private geminiReferenceResults: SearchResult[] = [];
+	private lastGeminiQuery: string = '';
+	private currentApiKey: string | null = null;
+
 	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app);
 		this.plugin = plugin;
-		this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)...');
+		this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)... (Press Tab to switch)');
 		this.emptyStateText = 'No matching results found.';
 	}
 
 	onOpen() {
 		void super.onOpen();
 
+		const secretId = this.plugin.settings.geminiSecretId;
+		const rawApiKey = secretId ? this.plugin.app.secretStorage.getSecret(secretId) : null;
+		this.currentApiKey = rawApiKey ? rawApiKey : null;
+
+		this.scope.register([], 'Tab', (e: KeyboardEvent) => {
+			this.searchMode = this.searchMode === 'fuzzy' ? 'gemini' : 'fuzzy';
+			this.updateModeUI();
+			return false;
+		});
+
+		this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+			if (e.key === 'Enter' && this.searchMode === 'gemini') {
+				if (this.geminiReferenceResults.length === 0) {
+					e.preventDefault();
+					e.stopPropagation();
+					void this.triggerGeminiSearch();
+				}
+			}
+		}, { capture: true });
+
+		const promptContainer = this.resultContainerEl.parentElement || this.modalEl;
+		if (promptContainer) {
+			this.geminiContainerEl = createDiv({ cls: 'ultra-search-gemini-container' });
+			promptContainer.insertBefore(this.geminiContainerEl, this.resultContainerEl);
+			this.geminiContainerEl.style.display = 'none';
+			this.geminiContainerEl.style.padding = '10px';
+			this.geminiContainerEl.style.borderTop = '1px solid var(--background-modifier-border)';
+
+			const toolbarEl = this.geminiContainerEl.createDiv({ cls: 'gemini-toolbar' });
+			this.geminiToolbarEl = toolbarEl;
+			toolbarEl.style.display = 'flex';
+			toolbarEl.style.justifyContent = 'space-between';
+			toolbarEl.style.marginBottom = '10px';
+			toolbarEl.style.alignItems = 'center';
+			toolbarEl.style.gap = '10px';
+
+			const controlsWrapper = toolbarEl.createDiv();
+			controlsWrapper.style.display = 'flex';
+			controlsWrapper.style.gap = '15px';
+			controlsWrapper.style.alignItems = 'center';
+
+			const contextWrapper = controlsWrapper.createDiv();
+			contextWrapper.createSpan({ text: 'Context: ', cls: 'gemini-context-label' });
+
+			const contextDropdownEl = contextWrapper.createEl('select', { cls: 'gemini-context-dropdown' });
+			contextDropdownEl.createEl('option', { value: 'file', text: 'Current File' });
+			contextDropdownEl.createEl('option', { value: 'folder', text: 'Current Folder' });
+			contextDropdownEl.createEl('option', { value: 'vault', text: 'Entire Vault' });
+			contextDropdownEl.addEventListener('change', (e) => {
+				this.geminiContextMode = (e.target as HTMLSelectElement).value as 'file' | 'folder' | 'vault';
+			});
+
+			const includeRefsWrapper = controlsWrapper.createDiv();
+			includeRefsWrapper.style.display = 'flex';
+			includeRefsWrapper.style.alignItems = 'center';
+			includeRefsWrapper.style.gap = '5px';
+			const includeRefsCheckbox = includeRefsWrapper.createEl('input', { type: 'checkbox' });
+			includeRefsCheckbox.addEventListener('change', (e) => {
+				this.geminiIncludeReferences = (e.target as HTMLInputElement).checked;
+			});
+			includeRefsWrapper.createSpan({ text: 'Include Linked Pages', cls: 'gemini-include-refs-label', attr: { style: 'font-size: 0.9em; color: var(--text-muted);' } });
+
+			const modelWrapper = controlsWrapper.createDiv();
+			modelWrapper.createSpan({ text: 'Model: ', cls: 'gemini-model-label' });
+
+			const modelDropdownEl = modelWrapper.createEl('select', { cls: 'gemini-model-dropdown' });
+			modelDropdownEl.createEl('option', { value: 'gemini-3.5-flash', text: 'Gemini 3.5 Flash' });
+			modelDropdownEl.createEl('option', { value: 'gemini-3.1-pro', text: 'Gemini 3.1 Pro' });
+			modelDropdownEl.createEl('option', { value: 'gemini-3.1-flash-lite', text: 'Gemini 3.1 Flash Lite' });
+			modelDropdownEl.value = this.plugin.settings.geminiModel;
+			modelDropdownEl.addEventListener('change', async (e) => {
+				this.plugin.settings.geminiModel = (e.target as HTMLSelectElement).value;
+				await this.plugin.saveSettings();
+			});
+
+			const searchBtn = toolbarEl.createEl('button', { text: 'Ask Gemini', cls: 'mod-cta' });
+			searchBtn.addEventListener('click', () => void this.triggerGeminiSearch());
+
+			this.geminiResultEl = this.geminiContainerEl.createDiv({ cls: 'gemini-result markdown-rendered' });
+			this.geminiResultEl.style.marginTop = '10px';
+			this.geminiResultEl.style.minHeight = '50px';
+			this.geminiResultEl.style.maxHeight = '50vh';
+			this.geminiResultEl.style.overflowY = 'auto';
+			this.geminiResultEl.style.userSelect = 'text';
+		}
+
 		// Add footer color coding legend at the bottom of the modal window
-		const footerEl = this.modalEl.createDiv({ cls: 'ultra-search-footer' });
-		
-		footerEl.createSpan({ cls: 'ultra-search-legend-title', text: 'Search Types: ' });
-		
-		footerEl.createSpan({ cls: 'ultra-search-badge badge-line', text: 'Line' });
-		footerEl.createSpan({ cls: 'ultra-search-legend-desc', text: ' Line Match' });
-		
-		footerEl.createSpan({ cls: 'ultra-search-badge badge-file', text: 'File' });
-		footerEl.createSpan({ cls: 'ultra-search-legend-desc', text: ' File Name Match' });
+		this.footerEl = this.modalEl.createDiv({ cls: 'ultra-search-footer' });
+
+		this.footerEl.createSpan({ cls: 'ultra-search-legend-title', text: 'Search Types: ' });
+
+		this.footerEl.createSpan({ cls: 'ultra-search-badge badge-line', text: 'Line' });
+		this.footerEl.createSpan({ cls: 'ultra-search-legend-desc', text: ' Line Match' });
+
+		this.footerEl.createSpan({ cls: 'ultra-search-badge badge-file', text: 'File' });
+		this.footerEl.createSpan({ cls: 'ultra-search-legend-desc', text: ' File Name Match' });
 	}
 
 	getSuggestions(query: string): SearchResult[] | Promise<SearchResult[]> {
+		if (this.searchMode === 'gemini') {
+			if (this.currentApiKey && query !== this.lastGeminiQuery) {
+				this.geminiReferenceResults = [];
+				if (this.geminiResultEl) {
+					this.geminiResultEl.empty();
+				}
+			}
+			return this.geminiReferenceResults;
+		}
+
 		// Clean the query terms for highlighting
 		const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 0);
 		this.terms = terms;
@@ -351,23 +370,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 			}
 
 			if (fileMatchesAll) {
-				// Order bonus: if terms appear in the same order as in the query
-				if (terms.length > 1) {
-					let lastIdx = -1;
-					let inOrder = true;
-					for (const term of terms) {
-						const idx = fileLower.indexOf(term);
-						if (idx !== -1 && idx > lastIdx) {
-							lastIdx = idx;
-						} else {
-							inOrder = false;
-							break;
-						}
-					}
-					if (inOrder) {
-						fileTotalScore += 20;
-					}
-				}
+				fileTotalScore += getInOrderBonus(fileLower, terms);
 
 				// Penalize long file names slightly to prioritize shorter ones
 				fileTotalScore -= file.name.length * 0.01;
@@ -399,23 +402,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 				}
 
 				if (matchesAll) {
-					// Order bonus: if terms appear in the same order as in the query
-					if (terms.length > 1) {
-						let lastIdx = -1;
-						let inOrder = true;
-						for (const term of terms) {
-							const idx = line.lowerText.indexOf(term);
-							if (idx !== -1 && idx > lastIdx) {
-								lastIdx = idx;
-							} else {
-								inOrder = false;
-								break;
-							}
-						}
-						if (inOrder) {
-							totalScore += 20;
-						}
-					}
+					totalScore += getInOrderBonus(line.lowerText, terms);
 
 					// Penalize long lines slightly to prioritize shorter ones
 					totalScore -= line.text.length * 0.01;
@@ -447,7 +434,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 
 		const noteEl = contentEl.createDiv({ cls: 'suggestion-note' });
 		noteEl.createSpan({ cls: 'ultra-search-file', text: suggestion.file.path });
-		
+
 		if (suggestion.type === 'line' && suggestion.lineNumber !== undefined) {
 			noteEl.createSpan({ cls: 'ultra-search-separator', text: ' : ' });
 			noteEl.createSpan({ cls: 'ultra-search-linenumber', text: `Line ${suggestion.lineNumber}` });
@@ -487,9 +474,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 						if (currentWordStart !== -1) {
 							const word = lowerText.substring(currentWordStart, i);
 							const dist = minPrefixLevenshteinDistance(word, term);
-							let maxTypos = 0;
-							if (term.length >= 3 && term.length <= 5) maxTypos = 1;
-							else if (term.length >= 6) maxTypos = 2;
+							const maxTypos = getMaxTypos(term.length);
 
 							if (dist <= maxTypos && dist < bestDist) {
 								bestDist = dist;
@@ -539,7 +524,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 
 		const openAndScroll = async () => {
 			await leaf.openFile(suggestion.file, { state: { mode: 'source' } });
-			
+
 			if (suggestion.type === 'line' && suggestion.lineNumber !== undefined) {
 				const setEditorCursor = () => {
 					const view = leaf.view;
@@ -565,6 +550,101 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 		};
 
 		void openAndScroll();
+	}
+
+	updateModeUI() {
+		if (this.searchMode === 'gemini') {
+			this.setPlaceholder('Ask Gemini (Press Tab to switch to Fuzzy Search)...');
+			this.emptyStateText = '';
+			this.resultContainerEl.style.display = 'block';
+			if (this.footerEl) this.footerEl.style.display = 'none';
+			if (this.geminiContainerEl) {
+				this.geminiContainerEl.style.display = 'block';
+
+				if (!this.currentApiKey) {
+					if (this.geminiToolbarEl) this.geminiToolbarEl.style.display = 'none';
+					if (this.geminiResultEl) {
+						this.geminiResultEl.empty();
+						const warningEl = this.geminiResultEl.createDiv({ cls: 'gemini-warning' });
+						warningEl.style.color = 'var(--text-warning)';
+						warningEl.style.padding = '10px';
+						warningEl.style.border = '1px solid var(--background-modifier-border-warning)';
+						warningEl.style.borderRadius = '5px';
+						warningEl.style.backgroundColor = 'var(--background-secondary)';
+						warningEl.style.marginTop = '10px';
+						warningEl.innerHTML = `<strong>Gemini Search Disabled</strong><br>Please select and set a valid Gemini API Key secret in the plugin settings.`;
+					}
+				} else {
+					if (this.geminiToolbarEl) this.geminiToolbarEl.style.display = 'flex';
+				}
+			}
+			this.inputEl.dispatchEvent(new Event('input'));
+		} else {
+			this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)... (Press Tab to switch)');
+			this.emptyStateText = 'No matching results found.';
+			this.resultContainerEl.style.display = 'block';
+			if (this.footerEl) this.footerEl.style.display = 'block';
+			if (this.geminiContainerEl) this.geminiContainerEl.style.display = 'none';
+			this.inputEl.dispatchEvent(new Event('input'));
+		}
+	}
+
+	async triggerGeminiSearch() {
+		if (this.isGenerating) return;
+		const query = this.inputEl.value.trim();
+		if (!query) {
+			new Notice('Please enter a query for Gemini.');
+			return;
+		}
+
+		this.lastGeminiQuery = query;
+
+		if (!this.currentApiKey) {
+			new Notice('Please select and set a valid Gemini API Key secret in the settings.');
+			return;
+		}
+
+		this.isGenerating = true;
+		this.geminiReferenceResults = [];
+		if (this.geminiResultEl) {
+			this.geminiResultEl.empty();
+			this.geminiResultEl.createEl('div', { text: 'Gathering context and asking Gemini...' });
+		}
+
+		try {
+			const { answer, references } = await performGeminiSearch(
+				this.app,
+				this.plugin,
+				query,
+				this.geminiContextMode,
+				this.geminiIncludeReferences,
+				this.currentApiKey,
+				this.plugin.settings.geminiModel
+			);
+
+			if (this.geminiResultEl) {
+				this.geminiResultEl.empty();
+				if (answer) {
+					await MarkdownRenderer.render(this.app, answer, this.geminiResultEl, '', this.plugin);
+				}
+
+				if (references.length > 0) {
+					this.geminiReferenceResults = references;
+				}
+
+				this.inputEl.dispatchEvent(new Event('input'));
+			}
+		} catch (error) {
+			console.error(error);
+			const errMsg = error instanceof Error ? error.message : String(error);
+			new Notice('Gemini search failed: ' + errMsg);
+			if (this.geminiResultEl) {
+				this.geminiResultEl.empty();
+				this.geminiResultEl.createEl('div', { text: 'Error: ' + errMsg, cls: 'gemini-error' });
+			}
+		} finally {
+			this.isGenerating = false;
+		}
 	}
 }
 
@@ -621,5 +701,19 @@ class UltraSearchSettingTab extends PluginSettingTab {
 					// Rebuild index in the background to apply exclusions
 					void this.plugin.buildIndex();
 				}));
+
+		new Setting(containerEl)
+			.setName('Gemini API Key Secret')
+			.setDesc('Select the Secret ID from your Obsidian Keychain that contains your Gemini API key.')
+			.addDropdown(dropdown => {
+				const secrets = this.app.secretStorage.listSecrets();
+				dropdown.addOption('', 'Select a secret...');
+				secrets.forEach(secretId => dropdown.addOption(secretId, secretId));
+				dropdown.setValue(this.plugin.settings.geminiSecretId)
+					.onChange(async (value) => {
+						this.plugin.settings.geminiSecretId = value;
+						await this.plugin.saveSettings();
+					});
+			});
 	}
 }
