@@ -2,7 +2,9 @@ import {
 	Plugin,
 	App,
 	TFile,
+	TFolder,
 	SuggestModal,
+	AbstractInputSuggest,
 	MarkdownView,
 	Keymap,
 	PluginSettingTab,
@@ -637,6 +639,77 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 	}
 }
 
+class FolderSuggest extends AbstractInputSuggest<string> {
+	private inputEl: HTMLInputElement;
+
+	constructor(app: App, inputEl: HTMLInputElement) {
+		super(app, inputEl);
+		this.inputEl = inputEl;
+	}
+
+	getSuggestions(query: string): string[] {
+		const cursor = this.inputEl.selectionStart ?? query.length;
+		const beforeText = query.substring(0, cursor);
+		const lastCommaBefore = beforeText.lastIndexOf(',');
+
+		const afterText = query.substring(cursor);
+		const nextCommaAfter = afterText.indexOf(',');
+		const lastCommaAfter = nextCommaAfter === -1 ? query.length : cursor + nextCommaAfter;
+
+		const currentSegment = query.substring(lastCommaBefore + 1, lastCommaAfter).trim().toLowerCase();
+
+		const folders = this.app.vault.getAllLoadedFiles()
+			.filter((file): file is TFolder => file instanceof TFolder && !file.isRoot())
+			.map(folder => folder.path);
+
+		return folders
+			.filter(path => path.toLowerCase().includes(currentSegment))
+			.sort((a, b) => a.localeCompare(b));
+	}
+
+	renderSuggestion(value: string, el: HTMLElement): void {
+		el.setText(value);
+	}
+
+	selectSuggestion(value: string, evt: MouseEvent | KeyboardEvent): void {
+		const currentVal = this.inputEl.value;
+		const cursor = this.inputEl.selectionStart ?? currentVal.length;
+
+		const beforeText = currentVal.substring(0, cursor);
+		const lastCommaBefore = beforeText.lastIndexOf(',');
+
+		const afterText = currentVal.substring(cursor);
+		const nextCommaAfter = afterText.indexOf(',');
+		const lastCommaAfter = nextCommaAfter === -1 ? currentVal.length : cursor + nextCommaAfter;
+
+		const beforeSegment = currentVal.substring(0, lastCommaBefore + 1);
+		const afterSegment = currentVal.substring(lastCommaAfter);
+
+		let leading = beforeSegment;
+		if (leading.endsWith(',')) {
+			leading += ' ';
+		}
+
+		let newVal = '';
+		let cursorPosition = 0;
+		if (afterSegment.trim().length === 0) {
+			newVal = leading + value + ', ';
+			cursorPosition = newVal.length;
+		} else {
+			newVal = leading + value + afterSegment;
+			cursorPosition = leading.length + value.length;
+		}
+
+		this.setValue(newVal);
+
+		this.inputEl.focus();
+		this.inputEl.setSelectionRange(cursorPosition, cursorPosition);
+
+		this.inputEl.dispatchEvent(new Event('input'));
+		this.close();
+	}
+}
+
 // Settings Tab UI
 class UltraSearchSettingTab extends PluginSettingTab {
 	plugin: UltraSearchPlugin;
@@ -681,15 +754,17 @@ class UltraSearchSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Exclude folders')
 			.setDesc('Comma-separated list of folders to exclude from search (e.g. templates, archives).')
-			.addText(text => text
-				.setPlaceholder('templates, archives')
-				.setValue(this.plugin.settings.excludeFolders)
-				.onChange((value) => {
-					this.plugin.settings.excludeFolders = value;
-					void this.plugin.saveSettings();
-					// Rebuild index in the background to apply exclusions
-					void this.plugin.buildIndex();
-				}));
+			.addText(text => {
+				text.setPlaceholder('templates, archives')
+					.setValue(this.plugin.settings.excludeFolders)
+					.onChange((value) => {
+						this.plugin.settings.excludeFolders = value;
+						void this.plugin.saveSettings();
+						// Rebuild index in the background to apply exclusions
+						void this.plugin.buildIndex();
+					});
+				new FolderSuggest(this.app, text.inputEl);
+			});
 
 		new Setting(containerEl)
 			.setName('Gemini API Key Secret')
