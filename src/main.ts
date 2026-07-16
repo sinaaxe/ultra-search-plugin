@@ -9,14 +9,12 @@ import {
 	Keymap,
 	PluginSettingTab,
 	Setting,
-	Notice,
-	MarkdownRenderer,
-	Component
+	Notice
 } from 'obsidian';
 
 import { UltraSearchSettings, DEFAULT_SETTINGS } from './settings';
 import { SearchResult, fuzzyMatch, minPrefixLevenshteinDistance, getInOrderBonus, getMaxTypos } from './search';
-import { performGeminiSearch } from './gemini';
+import { UltraSearchChatView, CHAT_VIEW_TYPE } from './chatView';
 
 // Cached representation of a line
 interface IndexedLine {
@@ -64,6 +62,26 @@ export default class UltraSearchPlugin extends Plugin {
 			name: 'Open',
 			callback: () => {
 				new UltraSearchModal(this.app, this).open();
+			}
+		});
+
+		// Register Chat View
+		this.registerView(
+			CHAT_VIEW_TYPE,
+			(leaf) => new UltraSearchChatView(leaf, this)
+		);
+
+		// Ribbon icon for Chat panel
+		this.addRibbonIcon('message-square', 'UltraSearch Chat', () => {
+			void this.activateChatView();
+		});
+
+		// Command palette command for Chat panel
+		this.addCommand({
+			id: 'open-chat',
+			name: 'Open Chat Panel',
+			callback: () => {
+				void this.activateChatView();
 			}
 		});
 
@@ -161,6 +179,26 @@ export default class UltraSearchPlugin extends Plugin {
 	removeFileFromIndex(path: string) {
 		this.index.delete(path);
 	}
+
+	async activateChatView() {
+		const { workspace } = this.app;
+		
+		let leaf = workspace.getLeavesOfType(CHAT_VIEW_TYPE)[0];
+		if (!leaf) {
+			const rightLeaf = workspace.getRightLeaf(false);
+			if (rightLeaf) {
+				leaf = rightLeaf;
+				await leaf.setViewState({
+					type: CHAT_VIEW_TYPE,
+					active: true
+				});
+			}
+		}
+
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+		}
+	}
 }
 
 // Suggestion Modal Implementation
@@ -173,100 +211,19 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 	private activeResolve: ((value: SearchResult[]) => void) | null = null;
 	private lastQuery = '';
 	private lastResults: SearchResult[] = [];
-
-	// Gemini state
-	private searchMode: 'fuzzy' | 'gemini' = 'fuzzy';
-	private geminiContextMode: 'file' | 'folder' | 'vault' = 'file';
-	private geminiIncludeReferences = false;
-	private isGenerating = false;
-	private geminiContainerEl: HTMLElement | null = null;
-	private geminiToolbarEl: HTMLElement | null = null;
-	private geminiResultEl: HTMLElement | null = null;
 	private footerEl: HTMLElement | null = null;
-	private geminiReferenceResults: SearchResult[] = [];
-	private lastGeminiQuery: string = '';
-	private currentApiKey: string | null = null;
-	private renderComponents: Component[] = [];
 
 	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app);
 		this.plugin = plugin;
-		this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)... (Press Tab to switch)');
+		this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)...');
 		this.emptyStateText = 'No matching results found.';
 	}
 	onClose() {
-		this.renderComponents.forEach(c => c.unload());
 	}
 
 	onOpen() {
 		void super.onOpen();
-
-		const secretId = this.plugin.settings.geminiSecretId;
-		const rawApiKey = secretId ? this.plugin.app.secretStorage.getSecret(secretId) : null;
-		this.currentApiKey = rawApiKey ? rawApiKey : null;
-
-		this.scope.register([], 'Tab', (e: KeyboardEvent) => {
-			this.searchMode = this.searchMode === 'fuzzy' ? 'gemini' : 'fuzzy';
-			this.updateModeUI();
-			return false;
-		});
-
-		this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
-			if (e.key === 'Enter' && this.searchMode === 'gemini') {
-				if (this.geminiReferenceResults.length === 0) {
-					e.preventDefault();
-					e.stopPropagation();
-					void this.triggerGeminiSearch();
-				}
-			}
-		}, { capture: true });
-
-		const promptContainer = this.resultContainerEl.parentElement || this.modalEl;
-		if (promptContainer) {
-			this.geminiContainerEl = createDiv({ cls: 'ultra-search-gemini-container gemini-hidden' });
-			promptContainer.insertBefore(this.geminiContainerEl, this.resultContainerEl);
-
-			const toolbarEl = this.geminiContainerEl.createDiv({ cls: 'gemini-toolbar' });
-			this.geminiToolbarEl = toolbarEl;
-
-			const controlsWrapper = toolbarEl.createDiv({ cls: 'gemini-controls-wrapper' });
-
-			const contextWrapper = controlsWrapper.createDiv();
-			contextWrapper.createSpan({ text: 'Context: ', cls: 'gemini-context-label' });
-
-			const contextDropdownEl = contextWrapper.createEl('select', { cls: 'gemini-context-dropdown' });
-			contextDropdownEl.createEl('option', { value: 'file', text: 'Current File' });
-			contextDropdownEl.createEl('option', { value: 'folder', text: 'Current Folder' });
-			contextDropdownEl.createEl('option', { value: 'vault', text: 'Entire Vault' });
-			contextDropdownEl.addEventListener('change', (e) => {
-				this.geminiContextMode = (e.target as HTMLSelectElement).value as 'file' | 'folder' | 'vault';
-			});
-
-			const includeRefsWrapper = controlsWrapper.createDiv({ cls: 'gemini-include-refs-wrapper' });
-			const includeRefsCheckbox = includeRefsWrapper.createEl('input', { type: 'checkbox' });
-			includeRefsCheckbox.addEventListener('change', (e) => {
-				this.geminiIncludeReferences = (e.target as HTMLInputElement).checked;
-			});
-			includeRefsWrapper.createSpan({ text: 'Include Linked Pages', cls: 'gemini-include-refs-label', attr: { style: 'font-size: 0.9em; color: var(--text-muted);' } });
-
-			const modelWrapper = controlsWrapper.createDiv();
-			modelWrapper.createSpan({ text: 'Model: ', cls: 'gemini-model-label' });
-
-			const modelDropdownEl = modelWrapper.createEl('select', { cls: 'gemini-model-dropdown' });
-			modelDropdownEl.createEl('option', { value: 'gemini-3.5-flash', text: 'Gemini 3.5 Flash' });
-			modelDropdownEl.createEl('option', { value: 'gemini-3.1-pro', text: 'Gemini 3.1 Pro' });
-			modelDropdownEl.createEl('option', { value: 'gemini-3.1-flash-lite', text: 'Gemini 3.1 Flash Lite' });
-			modelDropdownEl.value = this.plugin.settings.geminiModel;
-			modelDropdownEl.addEventListener('change', (e) => {
-				this.plugin.settings.geminiModel = (e.target as HTMLSelectElement).value;
-				void this.plugin.saveSettings();
-			});
-
-			const searchBtn = toolbarEl.createEl('button', { text: 'Ask Gemini', cls: 'mod-cta' });
-			searchBtn.addEventListener('click', () => void this.triggerGeminiSearch());
-
-			this.geminiResultEl = this.geminiContainerEl.createDiv({ cls: 'gemini-result markdown-rendered' });
-		}
 
 		// Add footer color coding legend at the bottom of the modal window
 		this.footerEl = this.modalEl.createDiv({ cls: 'ultra-search-footer' });
@@ -281,15 +238,6 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 	}
 
 	getSuggestions(query: string): SearchResult[] | Promise<SearchResult[]> {
-		if (this.searchMode === 'gemini') {
-			if (this.currentApiKey && query !== this.lastGeminiQuery) {
-				this.geminiReferenceResults = [];
-				if (this.geminiResultEl) {
-					this.geminiResultEl.empty();
-				}
-			}
-			return this.geminiReferenceResults;
-		}
 
 		// Clean the query terms for highlighting
 		const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 0);
@@ -542,100 +490,6 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 		};
 
 		void openAndScroll();
-	}
-
-	updateModeUI() {
-		if (this.searchMode === 'gemini') {
-			this.setPlaceholder('Ask Gemini (Press Tab to switch to Fuzzy Search)...');
-			this.emptyStateText = '';
-			this.resultContainerEl.toggleClass('gemini-hidden', false);
-			if (this.footerEl) this.footerEl.toggleClass('gemini-hidden', true);
-			if (this.geminiContainerEl) {
-				this.geminiContainerEl.toggleClass('gemini-hidden', false);
-
-				if (!this.currentApiKey) {
-					if (this.geminiToolbarEl) this.geminiToolbarEl.toggleClass('gemini-hidden', true);
-					if (this.geminiResultEl) {
-						this.geminiResultEl.empty();
-						const warningEl = this.geminiResultEl.createDiv({ cls: 'gemini-warning' });
-						warningEl.createEl('strong', { text: 'Gemini Search Disabled' });
-						warningEl.createEl('br');
-						warningEl.appendText('Please select and set a valid Gemini API Key secret in the plugin settings.');
-					}
-				} else {
-					if (this.geminiToolbarEl) this.geminiToolbarEl.toggleClass('gemini-hidden', false);
-				}
-			}
-			this.inputEl.dispatchEvent(new Event('input'));
-		} else {
-			this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)... (Press Tab to switch)');
-			this.emptyStateText = 'No matching results found.';
-			this.resultContainerEl.toggleClass('gemini-hidden', false);
-			if (this.footerEl) this.footerEl.toggleClass('gemini-hidden', false);
-			if (this.geminiContainerEl) this.geminiContainerEl.toggleClass('gemini-hidden', true);
-			this.inputEl.dispatchEvent(new Event('input'));
-		}
-	}
-
-	async triggerGeminiSearch() {
-		if (this.isGenerating) return;
-		const query = this.inputEl.value.trim();
-		if (!query) {
-			new Notice('Please enter a query for Gemini.');
-			return;
-		}
-
-		this.lastGeminiQuery = query;
-
-		if (!this.currentApiKey) {
-			new Notice('Please select and set a valid Gemini API Key secret in the settings.');
-			return;
-		}
-
-		this.isGenerating = true;
-		this.geminiReferenceResults = [];
-		if (this.geminiResultEl) {
-			this.geminiResultEl.empty();
-			this.geminiResultEl.createEl('div', { text: 'Gathering context and asking Gemini...' });
-		}
-
-		try {
-			const { answer, references } = await performGeminiSearch(
-				this.app,
-				this.plugin,
-				query,
-				this.geminiContextMode,
-				this.geminiIncludeReferences,
-				this.currentApiKey,
-				this.plugin.settings.geminiModel
-			);
-
-			if (this.geminiResultEl) {
-				this.geminiResultEl.empty();
-				if (answer) {
-					const comp = new Component();
-					comp.load();
-					this.renderComponents.push(comp);
-					await MarkdownRenderer.render(this.app, answer, this.geminiResultEl, '', comp);
-				}
-
-				if (references.length > 0) {
-					this.geminiReferenceResults = references;
-				}
-
-				this.inputEl.dispatchEvent(new Event('input'));
-			}
-		} catch (error) {
-			console.error(error);
-			const errMsg = error instanceof Error ? error.message : String(error);
-			new Notice('Gemini search failed: ' + errMsg);
-			if (this.geminiResultEl) {
-				this.geminiResultEl.empty();
-				this.geminiResultEl.createEl('div', { text: 'Error: ' + errMsg, cls: 'gemini-error' });
-			}
-		} finally {
-			this.isGenerating = false;
-		}
 	}
 }
 

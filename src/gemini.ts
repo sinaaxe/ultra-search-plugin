@@ -1,6 +1,6 @@
 import { App, TFile, MarkdownView, requestUrl, Notice } from 'obsidian';
-import type { SearchResult } from './search';
 import type UltraSearchPlugin from './main'; // We'll need access to the plugin for index/exclusion
+import type { ChatReference } from './types';
 
 export async function gatherContext(
 	app: App,
@@ -8,8 +8,7 @@ export async function gatherContext(
 	mode: 'file' | 'folder' | 'vault',
 	includeReferences: boolean
 ): Promise<string> {
-	const activeLeaf = app.workspace.getLeaf(false);
-	const activeFile = activeLeaf.view instanceof MarkdownView ? activeLeaf.view.file : null;
+	const activeFile = app.workspace.getActiveFile();
 
 	let filesToProcess: TFile[] = [];
 	const allFiles = app.vault.getMarkdownFiles();
@@ -72,7 +71,43 @@ export async function gatherContext(
 	return contextStr;
 }
 
-export async function callGeminiAPI(prompt: string, apiKey: string, model: string): Promise<string> {
+const RESPONSE_SCHEMA = {
+	type: 'object',
+	properties: {
+		answer: {
+			type: 'string',
+			description: 'Your detailed markdown answer here with explanations'
+		},
+		references: {
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					path: {
+						type: 'string',
+						description: 'relative file path of the referenced markdown file (e.g. folder/note.md)'
+					},
+					line: {
+						type: 'integer',
+						description: 'line number of the referenced text inside the markdown file (1-indexed)'
+					}
+				},
+				required: ['path']
+			},
+			description: 'List of referenced notes and lines'
+		}
+	},
+	required: ['answer', 'references']
+};
+
+
+
+export async function callGeminiChatAPI(
+	contents: { role: 'user' | 'model'; parts: { text: string }[] }[],
+	systemInstruction: string,
+	apiKey: string,
+	model: string
+): Promise<string> {
 	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
 	const response = await requestUrl({
@@ -82,13 +117,15 @@ export async function callGeminiAPI(prompt: string, apiKey: string, model: strin
 			'Content-Type': 'application/json'
 		},
 		body: JSON.stringify({
-			contents: [{
+			contents,
+			systemInstruction: {
 				parts: [{
-					text: prompt
+					text: systemInstruction
 				}]
-			}],
+			},
 			generationConfig: {
-				responseMimeType: "application/json"
+				responseMimeType: "application/json",
+				responseSchema: RESPONSE_SCHEMA
 			}
 		}),
 		throw: false
@@ -115,48 +152,48 @@ export async function callGeminiAPI(prompt: string, apiKey: string, model: strin
 	return 'No response from Gemini.';
 }
 
-export async function performGeminiSearch(
+export async function performGeminiChat(
 	app: App,
 	plugin: UltraSearchPlugin,
+	history: { role: 'user' | 'model'; parts: { text: string }[] }[],
 	query: string,
 	contextMode: 'file' | 'folder' | 'vault',
 	includeReferences: boolean,
 	apiKey: string,
 	model: string
-): Promise<{ answer: string; references: SearchResult[] }> {
+): Promise<{ answer: string; references: ChatReference[] }> {
 	const contextText = await gatherContext(app, plugin, contextMode, includeReferences);
 
 	if (contextText.length > 500000) {
 		new Notice('Warning: Context is very large. This may exceed API token limits or take a long time.');
 	}
 
-	const prompt = `You are a helpful assistant. Answer the user's question using the provided context.
-You MUST reply strictly in JSON format matching this schema exactly:
-{
-  "answer": "Your detailed markdown answer here with explanations",
-  "references": [
-    { "path": "file/path.md", "line": 123 }
-  ]
-}
+	const systemInstruction = `You are a helpful assistant. Answer the user's question using the provided context.`;
 
-Context:
+	const queryWithContext = `Context:
 ${contextText}
 
 Question: ${query}`;
 
-	const response = await callGeminiAPI(prompt, apiKey, model);
+	const contents = [
+		...history,
+		{
+			role: 'user' as const,
+			parts: [{ text: queryWithContext }]
+		}
+	];
+
+	const response = await callGeminiChatAPI(contents, systemInstruction, apiKey, model);
 	let responseObj: { answer?: string, references?: { path?: string, line?: number }[] } | null = null;
 	try {
-		// Some models might wrap JSON in markdown blocks
 		const cleanResponse = response.replace(/^```json\s*/, '').replace(/\s*```$/, '');
 		responseObj = JSON.parse(cleanResponse) as { answer?: string, references?: { path?: string, line?: number }[] };
 	} catch {
-		// Fallback to rendering as markdown if it fails
 		return { answer: response, references: [] };
 	}
 
 	const answer = responseObj.answer || '';
-	const references: SearchResult[] = [];
+	const references: ChatReference[] = [];
 	const seenRefs = new Set<string>();
 
 	if (responseObj.references && Array.isArray(responseObj.references)) {
@@ -169,16 +206,15 @@ Question: ${query}`;
 
 			const abstractFile = app.vault.getAbstractFileByPath(ref.path);
 			if (abstractFile instanceof TFile) {
-				let text = abstractFile.name;
+				let textVal = abstractFile.name;
 
 				if (ref.line !== undefined) {
 					try {
 						const content = await app.vault.cachedRead(abstractFile);
 						const lines = content.split(/\r?\n/);
 						if (ref.line > 0 && ref.line <= lines.length) {
-							text = lines[ref.line - 1]!.trim();
-							// Fallback if the line is completely empty
-							if (!text) text = `[Empty line ${ref.line}]`;
+							textVal = lines[ref.line - 1]!.trim();
+							if (!textVal) textVal = `[Empty line ${ref.line}]`;
 						}
 					} catch {
 						// ignore
@@ -187,10 +223,9 @@ Question: ${query}`;
 
 				references.push({
 					type: ref.line !== undefined ? 'line' : 'file',
-					file: abstractFile,
-					lineNumber: ref.line,
-					text: text,
-					score: 0
+					path: ref.path,
+					title: abstractFile.name,
+					lineNumber: ref.line
 				});
 			}
 		}
@@ -198,3 +233,4 @@ Question: ${query}`;
 
 	return { answer, references };
 }
+
