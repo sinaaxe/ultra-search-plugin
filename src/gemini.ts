@@ -106,9 +106,31 @@ export async function callGeminiChatAPI(
 	contents: { role: 'user' | 'model'; parts: { text: string }[] }[],
 	systemInstruction: string,
 	apiKey: string,
-	model: string
+	model: string,
+	enableGoogleSearch?: boolean
 ): Promise<string> {
 	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+	const body: any = {
+		contents,
+		systemInstruction: {
+			parts: [{
+				text: systemInstruction
+			}]
+		},
+		generationConfig: {
+			responseMimeType: "application/json",
+			responseSchema: RESPONSE_SCHEMA
+		}
+	};
+
+	if (enableGoogleSearch) {
+		body.tools = [
+			{
+				google_search: {}
+			}
+		];
+	}
 
 	const response = await requestUrl({
 		url,
@@ -116,18 +138,7 @@ export async function callGeminiChatAPI(
 		headers: {
 			'Content-Type': 'application/json'
 		},
-		body: JSON.stringify({
-			contents,
-			systemInstruction: {
-				parts: [{
-					text: systemInstruction
-				}]
-			},
-			generationConfig: {
-				responseMimeType: "application/json",
-				responseSchema: RESPONSE_SCHEMA
-			}
-		}),
+		body: JSON.stringify(body),
 		throw: false
 	});
 
@@ -160,7 +171,8 @@ export async function performGeminiChat(
 	contextMode: 'file' | 'folder' | 'vault',
 	includeReferences: boolean,
 	apiKey: string,
-	model: string
+	model: string,
+	enableGoogleSearch?: boolean
 ): Promise<{ answer: string; references: ChatReference[] }> {
 	const contextText = await gatherContext(app, plugin, contextMode, includeReferences);
 
@@ -183,7 +195,7 @@ Question: ${query}`;
 		}
 	];
 
-	const response = await callGeminiChatAPI(contents, systemInstruction, apiKey, model);
+	const response = await callGeminiChatAPI(contents, systemInstruction, apiKey, model, enableGoogleSearch);
 	let responseObj: { answer?: string, references?: { path?: string, line?: number }[] } | null = null;
 	try {
 		const cleanResponse = response.replace(/^```json\s*/, '').replace(/\s*```$/, '');

@@ -23,6 +23,7 @@ export class UltraSearchChatView extends ItemView {
 	sendBtnEl!: HTMLButtonElement;
 	contextDropdownEl!: HTMLSelectElement;
 	includeRefsCheckbox!: HTMLInputElement;
+	googleSearchCheckbox!: HTMLInputElement;
 	modelDropdownEl!: HTMLSelectElement;
 	clearBtnEl!: HTMLButtonElement;
 	renderComponents: Component[] = [];
@@ -65,6 +66,11 @@ export class UltraSearchChatView extends ItemView {
 		this.includeRefsCheckbox = includeRefsWrapper.createEl('input', { type: 'checkbox' });
 		includeRefsWrapper.createSpan({ text: 'Include Linked Pages', cls: 'chat-label' });
 
+		// Google Search support
+		const googleSearchWrapper = toolbarEl.createDiv({ cls: 'chat-control-item chat-checkbox-wrapper' });
+		this.googleSearchCheckbox = googleSearchWrapper.createEl('input', { type: 'checkbox' });
+		googleSearchWrapper.createSpan({ text: 'Internet Search*', cls: 'chat-label' });
+
 		// Model Selector
 		const modelWrapper = toolbarEl.createDiv({ cls: 'chat-control-item' });
 		modelWrapper.createSpan({ text: 'Model: ', cls: 'chat-label' });
@@ -82,6 +88,9 @@ export class UltraSearchChatView extends ItemView {
 			this.plugin.settings.geminiModel = (e.target as HTMLSelectElement).value;
 			void this.plugin.saveSettings();
 		});
+
+		const paidTierNoteEl = toolbarEl.createDiv({ cls: 'chat-paid-tier-note' });
+		paidTierNoteEl.createSpan({ text: '*Requires Gemini API paid tier', cls: 'chat-note-text' });
 
 		// Clear Chat Button
 		this.clearBtnEl = toolbarEl.createEl('button', { text: 'Clear Chat', cls: 'chat-clear-btn chat-button' });
@@ -166,6 +175,7 @@ export class UltraSearchChatView extends ItemView {
 		try {
 			const contextMode = this.contextDropdownEl.value as 'file' | 'folder' | 'vault';
 			const includeReferences = this.includeRefsCheckbox.checked;
+			const enableGoogleSearch = this.googleSearchCheckbox.checked;
 
 			// Format chat history to correct format for the REST API
 			const contents = this.history.slice(0, -1).map(msg => ({
@@ -182,7 +192,8 @@ export class UltraSearchChatView extends ItemView {
 				contextMode,
 				includeReferences,
 				apiKey,
-				this.modelDropdownEl.value
+				this.modelDropdownEl.value,
+				enableGoogleSearch
 			);
 
 			// Remove placeholder and add the real message

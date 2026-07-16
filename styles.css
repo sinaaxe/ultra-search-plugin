@@ -359,4 +359,13 @@
 	justify-content: center;
 }
 
+.chat-paid-tier-note {
+	margin-top: -6px;
+	margin-bottom: 2px;
+}
 
+.chat-note-text {
+	font-size: 9px;
+	color: var(--text-faint);
+	font-style: italic;
+}

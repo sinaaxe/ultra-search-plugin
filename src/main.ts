@@ -182,7 +182,7 @@ export default class UltraSearchPlugin extends Plugin {
 
 	async activateChatView() {
 		const { workspace } = this.app;
-		
+
 		let leaf = workspace.getLeavesOfType(CHAT_VIEW_TYPE)[0];
 		if (!leaf) {
 			const rightLeaf = workspace.getRightLeaf(false);
@@ -216,7 +216,7 @@ class UltraSearchModal extends SuggestModal<SearchResult> {
 	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app);
 		this.plugin = plugin;
-		this.setPlaceholder('Type to search (fuzzy, typo-tolerant & out of order)...');
+		this.setPlaceholder('Type to search...');
 		this.emptyStateText = 'No matching results found.';
 	}
 	onClose() {
