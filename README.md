@@ -1,14 +1,13 @@
 # Obsidian UltraSearch Plugin
 
-**UltraSearch** is a high-performance community Obsidian plugin that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It also features a powerful **Gemini AI search** to answer complex questions based on your vault's content.
+**UltraSearch** is a high-performance community Obsidian plugin that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It also features a dedicated **Gemini Chat Panel** in the sidebar to ask questions and converse with an AI assistant grounded in your notes.
 
 ![UltraFuzzySearch](media/fuzzy.png)
-![UltraGeminiSearch](media/gemini.png)
 ---
 
 ## Use Cases
 
-If you rely on daily notes to capture thoughts, tasks, or lists without adding tags or backlinks, finding specific information later can be challenging. Standard search tools often fail to locate these details or return irrelevant results. UltraSearch solves this by indexing and searching at the individual line level, making your notes instantly and precisely searchable. For more complex queries, you can seamlessly switch to Gemini search to synthesize intelligent answers directly from your notes.
+If you rely on daily notes to capture thoughts, tasks, or lists without adding tags or backlinks, finding specific information later can be challenging. Standard search tools often fail to locate these details or return irrelevant results. UltraSearch solves this by indexing and searching at the individual line level, making your notes instantly and precisely searchable. For more complex queries, you can open the UltraSearch Chat Panel to synthesize intelligent answers directly from your notes, current folder, or active file.
 
 ---
 
@@ -41,30 +40,31 @@ If you rely on daily notes to capture thoughts, tasks, or lists without adding t
    - Hitting `Enter` or clicking on a file suggestion opens the file at the top.
    - Support for opening files in new tabs/panes by holding the `Ctrl`/`Cmd` modifier key.
 
-### 🤖 Gemini AI Search
-1. **AI-Powered Answers**:
-   - Press `Tab` while the search modal is open to switch to Gemini Search mode.
-   - Ask complex questions and Gemini will synthesize an answer based on your notes.
-2. **Flexible Context Selection**:
-   - Choose the context scope for the AI: Current File, Current Folder, or Entire Vault.
-   - Option to include linked pages in the context.
-3. **Markdown Rendering & Citations**:
-   - The AI's response is rendered in standard Markdown right inside the modal.
-   - Gemini cites its sources, which appear as clickable line or file matches below the answer, allowing you to quickly jump to the source material.
+### 🤖 Gemini Chat Panel
+1. **Interactive Conversational Sidebar**:
+   - Access the dedicated **UltraSearch Chat** panel in the sidebar via the message-square ribbon icon or Command Palette command.
+   - Converse with the AI assistant naturally with message history preserved across turns.
+2. **Flexible Context Grounding**:
+   - Choose the context scope dynamically: Current File, Current Folder, or Entire Vault.
+   - Include or exclude linked pages from context dynamically.
+3. **Web Search Grounding**:
+   - Toggle **Internet Search** (powered by Google Search grounding) to supplement your vault search with real-time web results. *(Requires a Gemini API paid tier)*.
+4. **Rich Rendering & Navigation**:
+   - AI responses are rendered in rich Markdown.
+   - Generated citation cards appear as clickable badges, scrolling your active editor pane directly to the exact file or source line.
 
 ---
 
 ## How to Use
 
-- Open the Command Palette (`Ctrl/Cmd + P`), type `UltraSearch: Open`, and press `Enter`. (Alternatively, click the magnifying glass ribbon icon on the left sidebar).
-- **Fuzzy Search**: Type your search terms (separated by spaces). Use the arrow keys to navigate matching files and lines.
-- **Gemini Search**: Press `Tab` to switch to Gemini mode. Configure your context and model from the toolbar, type your question, and click "Ask Gemini".
+- **Fuzzy Search**: Click the magnifying glass ribbon icon on the left sidebar or open the Command Palette (`Ctrl/Cmd + P`), select `UltraSearch: Open`, and type your search query. Use arrow keys/mouse to navigate and press `Enter` to open matches.
+- **Gemini Chat**: Click the message-square ribbon icon in the left sidebar or select `UltraSearch: Open Chat Panel` in the Command Palette to open the sidebar view. Configure context scope, model, and internet search settings, and type your prompt.
 
 ---
 
 ## Adding your Gemini API Key
 
-To use the Gemini AI search feature, you need to provide a Gemini API key. For security reasons, the key must be stored securely using the Obsidian keychain rather than in plaintext settings.
+To use the Gemini chat feature, you need to provide a Gemini API key. For security reasons, the key must be stored securely using the Obsidian keychain rather than in plaintext settings.
 
 1. **Get an API Key**: Obtain a free API key from [Google AI Studio](https://aistudio.google.com/).
 2. **Store the Secret**: Open **Keychain** in Obsidian and save your API key securely under a Secret ID (e.g., `gemini-api-key`).
@@ -88,7 +88,7 @@ To use the Gemini AI search feature, you need to provide a Gemini API key. For s
 ### Vault Enumeration & Data Access
 This plugin uses the Obsidian API (`app.vault.getMarkdownFiles`) to discover Markdown files in your vault.
 * **Fuzzy Search (Local-First)**: All indexing, scanning, and search matching run entirely on your local machine. No vault data, file paths, or search queries ever leave your device or get transmitted over the internet.
-* **Gemini Search**: When using Gemini Search, the text contents of files within your selected context scope (File, Folder, or Vault) will be sent to the Google Gemini API to generate an answer. Be mindful of sensitive data when using the "Entire Vault" context.
+* **Gemini Chat**: When using the Gemini Chat Panel, the text contents of files within your selected context scope (File, Folder, or Vault) will be sent to the Google Gemini API to generate an answer. Be mindful of sensitive data when using the "Entire Vault" context.
 
 ---
 
