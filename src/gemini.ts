@@ -1,4 +1,4 @@
-import { App, TFile, MarkdownView, requestUrl, Notice } from 'obsidian';
+import { App, TFile, requestUrl, Notice } from 'obsidian';
 import type UltraSearchPlugin from './main'; // We'll need access to the plugin for index/exclusion
 import type { ChatReference } from './types';
 
@@ -111,7 +111,19 @@ export async function callGeminiChatAPI(
 ): Promise<string> {
 	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-	const body: any = {
+	const body: {
+		contents: typeof contents;
+		systemInstruction: {
+			parts: { text: string }[];
+		};
+		generationConfig: {
+			responseMimeType: string;
+			responseSchema: typeof RESPONSE_SCHEMA;
+		};
+		tools?: {
+			google_search: Record<string, unknown>;
+		}[];
+	} = {
 		contents,
 		systemInstruction: {
 			parts: [{

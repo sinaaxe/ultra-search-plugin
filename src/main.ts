@@ -8,8 +8,7 @@ import {
 	MarkdownView,
 	Keymap,
 	PluginSettingTab,
-	Setting,
-	Notice
+	Setting
 } from 'obsidian';
 
 import { UltraSearchSettings, DEFAULT_SETTINGS } from './settings';
@@ -196,7 +195,7 @@ export default class UltraSearchPlugin extends Plugin {
 		}
 
 		if (leaf) {
-			workspace.revealLeaf(leaf);
+			await workspace.revealLeaf(leaf);
 		}
 	}
 }
@@ -571,6 +570,10 @@ class UltraSearchSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: UltraSearchPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	getSettingDefinitions() {
+		return [];
 	}
 
 	display(): void {

@@ -246,7 +246,7 @@ export class UltraSearchChatView extends ItemView {
 						badgeClass = 'badge-line';
 					}
 
-					const badgeEl = badgesWrapper.createEl('div', {
+					const badgeEl = badgesWrapper.createDiv({
 						cls: `ultra-search-badge ${badgeClass} chat-ref-badge`,
 					});
 
