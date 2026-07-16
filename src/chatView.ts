@@ -78,16 +78,7 @@ export class UltraSearchChatView extends ItemView {
 		this.modelDropdownEl.createEl('option', { value: 'gemini-3.5-flash', text: 'Gemini 3.5 Flash' });
 		this.modelDropdownEl.createEl('option', { value: 'gemini-3.1-pro-preview', text: 'Gemini 3.1 Pro' });
 		this.modelDropdownEl.createEl('option', { value: 'gemini-3.1-flash-lite', text: 'Gemini 3.1 Flash Lite' });
-		this.modelDropdownEl.value = this.plugin.settings.geminiModel;
-		if (!this.modelDropdownEl.value) {
-			this.modelDropdownEl.value = 'gemini-3.5-flash';
-			this.plugin.settings.geminiModel = 'gemini-3.5-flash';
-			void this.plugin.saveSettings();
-		}
-		this.modelDropdownEl.addEventListener('change', (e) => {
-			this.plugin.settings.geminiModel = (e.target as HTMLSelectElement).value;
-			void this.plugin.saveSettings();
-		});
+		this.modelDropdownEl.value = 'gemini-3.5-flash';
 
 		const paidTierNoteEl = toolbarEl.createDiv({ cls: 'chat-paid-tier-note' });
 		paidTierNoteEl.createSpan({ text: '*Requires Gemini API paid tier', cls: 'chat-note-text' });
