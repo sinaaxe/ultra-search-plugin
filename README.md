@@ -3,6 +3,7 @@
 **UltraSearch** is a high-performance community Obsidian plugin that lets you search and rank both **file names** and **individual line contents** across all Markdown files in your vault. It also features a dedicated **Gemini Chat Panel** in the sidebar to ask questions and converse with an AI assistant grounded in your notes.
 
 ![UltraFuzzySearch](media/fuzzy.png)
+![UltraChatPanel](media/gemini.png)
 ---
 
 ## Use Cases
