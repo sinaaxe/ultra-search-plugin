@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-ultra-search",
-	"version": "1.6.1",
-	"description": "Lightning-fast line-by-line fuzzy search and integrated AI chat for your Obsidian vault.",
+	"version": "1.6.3",
+	"description": "Lightning-fast line-by-line fuzzy search and integrated AI chat for your vault.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
