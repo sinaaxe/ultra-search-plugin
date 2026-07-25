@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-ultra-search",
 	"version": "1.6.1",
-	"description": "Fuzzy, out-of-order, and typo-tolerant search across file names and line contents with color-coded navigation in Obsidian.",
+	"description": "Lightning-fast line-by-line fuzzy search and integrated AI chat for your Obsidian vault.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -21,9 +21,9 @@
 	"authorUrl": "https://github.com/sinaaxe",
 	"license": "MIT",
 	"devDependencies": {
-		"@types/node": "^26.0.1",
+		"@types/node": "^26.1.1",
 		"esbuild": "^0.28.1",
 		"obsidian": "^1.13.1",
-		"typescript": "^6.0.3"
+		"typescript": "^7.0.2"
 	}
 }
