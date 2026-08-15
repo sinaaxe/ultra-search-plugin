@@ -75,10 +75,10 @@ export class UltraSearchChatView extends ItemView {
 		const modelWrapper = toolbarEl.createDiv({ cls: 'chat-control-item' });
 		modelWrapper.createSpan({ text: 'Model: ', cls: 'chat-label' });
 		this.modelDropdownEl = modelWrapper.createEl('select', { cls: 'chat-select' });
-		this.modelDropdownEl.createEl('option', { value: 'gemini-3.6-flash', text: 'Gemini 3.6 Flash' });
+		this.modelDropdownEl.createEl('option', { value: 'gemini-3.7-flash', text: 'Gemini 3.7 Flash' });
 		this.modelDropdownEl.createEl('option', { value: 'gemini-3.1-pro-preview', text: 'Gemini 3.1 Pro' });
 		this.modelDropdownEl.createEl('option', { value: 'gemini-3.5-flash-lite', text: 'Gemini 3.5 Flash Lite' });
-		this.modelDropdownEl.value = 'gemini-3.6-flash';
+		this.modelDropdownEl.value = 'gemini-3.7-flash';
 
 		const paidTierNoteEl = toolbarEl.createDiv({ cls: 'chat-paid-tier-note' });
 		paidTierNoteEl.createSpan({ text: '*Requires Gemini API paid tier', cls: 'chat-note-text' });

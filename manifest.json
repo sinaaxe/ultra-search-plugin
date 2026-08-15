@@ -1,7 +1,7 @@
 {
 	"id": "ultra-search",
 	"name": "UltraSearch",
-	"version": "1.6.3",
+	"version": "1.6.4",
 	"minAppVersion": "1.12.7",
 	"description": "Lightning-fast line-by-line fuzzy search and integrated AI chat for your vault.",
 	"author": "sinaaxe",

@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-ultra-search",
-	"version": "1.6.3",
+	"version": "1.6.4",
 	"description": "Lightning-fast line-by-line fuzzy search and integrated AI chat for your vault.",
 	"main": "main.js",
 	"type": "module",
@@ -21,8 +21,8 @@
 	"authorUrl": "https://github.com/sinaaxe",
 	"license": "MIT",
 	"devDependencies": {
-		"@types/node": "^26.1.1",
-		"esbuild": "^0.28.1",
+		"@types/node": "^26.2.0",
+		"esbuild": "^0.28.2",
 		"obsidian": "^1.13.1",
 		"typescript": "^7.0.2"
 	}
